@@ -57,6 +57,9 @@
     </style>
 </head>
 <body>
+    <!-- REPRODUCTOR DE MÚSICA DE FONDO -->
+    <audio id="bgMusic" src="Gold_Coins_at_Dawn.mp3" loop></audio>
+
     <div id="root"></div>
 
     <script type="text/babel">
@@ -290,6 +293,13 @@
                 // Desbloqueo de audio silencioso para navegadores móviles (es crucial hacerlo en un onClick real)
                 const dummy = new SpeechSynthesisUtterance('');
                 window.speechSynthesis.speak(dummy);
+                
+                // INICIAR LA MÚSICA
+                const bgMusic = document.getElementById('bgMusic');
+                if (bgMusic) {
+                    bgMusic.volume = 0.3; // Volumen suave
+                    bgMusic.play().catch(e => console.log("Música no pudo iniciar automáticamente:", e));
+                }
                 
                 speak("¡A jugar!");
                 onStart();
