@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Súper RPG de Lectura</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fuentes amigables -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+    
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #0f172a;
+            color: white;
+            user-select: none;
+            touch-action: manipulation;
+            overflow: hidden;
+        }
+        h1, h2, h3, .title-font {
+            font-family: 'Fredoka One', cursive;
+        }
+        
+        /* Animaciones */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px) rotate(-8deg); }
+            75% { transform: translateX(8px) rotate(8deg); }
+        }
+        .animate-shake { animation: shake 0.4s; }
+
+        @keyframes attackMove {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(50px) scale(1.2); }
+            100% { transform: translateX(0); }
+        }
+        .animate-attack { animation: attackMove 0.5s ease-out; }
+
+        @keyframes damageText {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+        }
+        .floating-damage {
+            position: absolute;
+            font-weight: 900;
+            font-size: 2.5rem;
+            text-shadow: 3px 3px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            animation: damageText 1.2s forwards;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        /* Mapa gigante de 50 niveles con gradiente masivo */
+        .map-bg-massive {
+            background: linear-gradient(to bottom, 
+                #1e1b4b 0%,    /* Espacio (Nivel 50) */
+                #4c1d95 10%,   /* Castillo Mágico */
+                #0284c7 20%,   /* Cielo */
+                #9a3412 30%,   /* Ruinas */
+                #0891b2 40%,   /* Nieve */
+                #7f1d1d 50%,   /* Volcán */
+                #475569 60%,   /* Cueva */
+                #f59e0b 70%,   /* Playa */
+                #047857 80%,   /* Bosque */
+                #16a34a 100%   /* Pradera (Nivel 1) */
+            );
+        }
+        
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- SISTEMA DE VOZ ---
+        const speak = (text) => {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'es-ES';
+                msg.rate = 0.85;
+                msg.pitch = 1.1;
+                window.speechSynthesis.speak(msg);
+            }
+        };
+
+        // --- DICCIONARIO EXPANDIDO ---
+        const DICTIONARY = [
+            {w: "SOL", m: "☀️"}, {w: "PAN", m: "🍞"}, {w: "SAL", m: "🧂"}, {w: "REY", m: "👑"},
+            {w: "PEZ", m: "🐟"}, {w: "MAR", m: "🌊"}, {w: "PIE", m: "🦶"}, {w: "DOS", m: "✌️"},
+            {w: "GATO", m: "🐱"}, {w: "PATO", m: "🦆"}, {w: "RANA", m: "🐸"}, {w: "OSO", m: "🐻"},
+            {w: "LEON", m: "🦁"}, {w: "VACA", m: "🐮"}, {w: "TORO", m: "🐂"}, {w: "SAPO", m: "🐸"},
+            {w: "ROJO", m: "🔴"}, {w: "AZUL", m: "🔵"}, {w: "UVA", m: "🍇"}, {w: "ORO", m: "🪙"},
+            {w: "LUNA", m: "🌙"}, {w: "NUBE", m: "☁️"}, {w: "HOJA", m: "🍃"}, {w: "RAYO", m: "⚡"},
+            {w: "AGUA", m: "💧"}, {w: "AIRE", m: "💨"}, {w: "LUZ", m: "💡"}, {w: "MAGIA", m: "✨"},
+            {w: "FUEGO", m: "🔥"}, {w: "ROCA", m: "🪨"}, {w: "COPA", m: "🍷"}, {w: "PICO", m: "⛏️"},
+            {w: "HIELO", m: "🧊"}, {w: "PINO", m: "🌲"}, {w: "CASA", m: "🏠"}, {w: "TREN", m: "🚂"},
+            {w: "OJO", m: "👁️"}, {w: "RÍO", m: "🏞️"}, {w: "VASO", m: "🥛"}, {w: "MANO", m: "✋"},
+            {w: "AVE", m: "🐦"}, {w: "ALAS", m: "🪽"}, {w: "PAZ", m: "🕊️"}, {w: "AMOR", m: "❤️"},
+            {w: "LIBRO", m: "📖"}, {w: "LLAVE", m: "🗝️"}, {w: "JOYA", m: "💎"}, {w: "MAPA", m: "🗺️"},
+            {w: "PERRO", m: "🐶"}, {w: "CERDO", m: "🐷"}, {w: "RATON", m: "🐭"}, {w: "RELOJ", m: "⌚"}
+        ];
+
+        // --- TEMÁTICAS PARA LOS 50 NIVELES ---
+        const THEMES = [
+            { id: 0, name: "Pradera", bg: "bg-green-400", bgIcon: "🌳", enemies: ["💧", "🐛", "🐌"], boss: "👑💧" },
+            { id: 1, name: "Bosque", bg: "bg-emerald-600", bgIcon: "🌲", enemies: ["🕷️", "🦇", "🐗"], boss: "🐺" },
+            { id: 2, name: "Playa", bg: "bg-yellow-300", bgIcon: "🏖️", enemies: ["🦀", "🐠", "🐡"], boss: "🐙" },
+            { id: 3, name: "Cueva", bg: "bg-gray-700", bgIcon: "🦇", enemies: ["🦇", "🦂", "🐍"], boss: "👻" },
+            { id: 4, name: "Volcán", bg: "bg-red-600", bgIcon: "🌋", enemies: ["🔥", "👺", "🌋"], boss: "🐉" },
+            { id: 5, name: "Nieve", bg: "bg-cyan-200", bgIcon: "❄️", enemies: ["⛄", "🐧", "🧊"], boss: "🐻‍❄️" },
+            { id: 6, name: "Ruinas", bg: "bg-orange-300", bgIcon: "🏛️", enemies: ["🧻", "🗿", "🦂"], boss: "🧟" },
+            { id: 7, name: "Cielo", bg: "bg-blue-400", bgIcon: "☁️", enemies: ["☁️", "🦅", "🪁"], boss: "🌪️" },
+            { id: 8, name: "Castillo", bg: "bg-purple-600", bgIcon: "🏰", enemies: ["🤺", "🛡️", "🏹"], boss: "🧙‍♂️" },
+            { id: 9, name: "Espacio", bg: "bg-indigo-900", bgIcon: "🪐", enemies: ["👽", "🛸", "☄️"], boss: "👾" }
+        ];
+
+        // --- GENERADOR DE NIVELES PROCEDURAL ---
+        const generateLevelData = (levelId) => {
+            const themeIndex = Math.floor((levelId - 1) / 5) % THEMES.length; // Cambia de mundo cada 5 niveles
+            const theme = THEMES[themeIndex];
+            
+            // Lógica de cantidad de combates (oleadas)
+            // Lvl 1-10: 3 combates | Lvl 11-20: 4 combates | Lvl 21-30: 5 combates ...
+            const totalWaves = Math.floor((levelId - 1) / 10) + 3;
+            
+            // Estadísticas escalares
+            const baseHp = 20 + (levelId * 10);
+            
+            return {
+                id: levelId,
+                name: `${theme.name} ${levelId}`,
+                theme: theme,
+                totalWaves: totalWaves,
+                enemyHp: baseHp,
+                bossHp: Math.floor(baseHp * 2.5),
+                enemyAtk: 5 + (levelId * 2),
+                bossAtk: 10 + (levelId * 3)
+            };
+        };
+
+        // Arreglo de 50 niveles
+        const LEVELS = Array.from({ length: 50 }, (_, i) => generateLevelData(i + 1));
+
+        // --- TIENDA EXPANDIDA ---
+        const SHOP_ITEMS = [
+            // ARMAS
+            { id: 'w1', type: 'weapon', name: "Palo de Madera", emoji: "🪵", stat: 10, cost: 10, desc: "+10 Daño" },
+            { id: 'w2', type: 'weapon', name: "Espada de Hierro", emoji: "🗡️", stat: 25, cost: 30, desc: "+25 Daño" },
+            { id: 'w3', type: 'weapon', name: "Espada de Fuego", emoji: "🔥🗡️", stat: 50, cost: 80, desc: "+50 Daño" },
+            { id: 'w4', type: 'weapon', name: "Espada Mágica", emoji: "✨🗡️", stat: 100, cost: 150, desc: "+100 Daño" },
+            
+            // ARMADURAS
+            { id: 'a1', type: 'armor', name: "Ropa Gruesa", emoji: "👕", stat: 5, cost: 10, desc: "+5 Defensa" },
+            { id: 'a2', type: 'armor', name: "Escudo Madera", emoji: "🛡️", stat: 15, cost: 30, desc: "+15 Defensa" },
+            { id: 'a3', type: 'armor', name: "Traje Caballero", emoji: "🤺", stat: 30, cost: 80, desc: "+30 Defensa" },
+            { id: 'a4', type: 'armor', name: "Traje Robot", emoji: "🤖", stat: 60, cost: 150, desc: "+60 Defensa" },
+            
+            // COMPAÑEROS
+            { id: 'c1', type: 'companion', name: "Perrito Fiel", emoji: "🐕", stat: 10, cost: 20, desc: "Cura 10 HP/Turno" },
+            { id: 'c2', type: 'companion', name: "Hada Mágica", emoji: "🧚", stat: 30, cost: 60, desc: "Cura 30 HP/Turno" },
+            { id: 'c3', type: 'companion', name: "Dragón Bebé", emoji: "🐲", stat: 60, cost: 120, desc: "Cura 60 HP/Turno" },
+            { id: 'c4', type: 'companion', name: "Estrella Fugaz", emoji: "🌟", stat: 100, cost: 200, desc: "Cura 100 HP/Turno" }
+        ];
+
+        // --- COMPONENTE PRINCIPAL ---
+        function App() {
+            const [screen, setScreen] = useState('TITLE'); 
+            const [stars, setStars] = useState(0);
+            const [maxLevelUnlocked, setMaxLevelUnlocked] = useState(1);
+            const [currentLevel, setCurrentLevel] = useState(null);
+            
+            // El HP Base del jugador crece automáticamente con los niveles superados
+            const playerMaxHp = 100 + (maxLevelUnlocked * 15);
+
+            const [player, setPlayer] = useState({
+                avatar: '👦',
+                baseAttack: 15,
+                baseDefense: 0,
+                inventory: { weapon: null, armor: null, companion: null },
+                purchased: []
+            });
+
+            const getTotalStats = () => {
+                let atk = player.baseAttack;
+                let def = player.baseDefense;
+                if (player.inventory.weapon) atk += SHOP_ITEMS.find(i => i.id === player.inventory.weapon).stat;
+                if (player.inventory.armor) def += SHOP_ITEMS.find(i => i.id === player.inventory.armor).stat;
+                return { atk, def };
+            };
+
+            return (
+                <div className="w-full h-screen max-w-2xl mx-auto bg-black relative flex flex-col shadow-2xl overflow-hidden">
+                    
+                    {/* Header Global */}
+                    <div className="absolute top-0 w-full p-4 flex justify-between items-center z-50 pointer-events-none">
+                        <div className="bg-yellow-400 text-black px-4 py-2 rounded-2xl title-font text-xl border-4 border-yellow-600 flex items-center gap-2 pointer-events-auto">
+                            ⭐ <span className="text-2xl">{stars}</span>
+                        </div>
+                        
+                        {screen === 'MAP' && (
+                            <button 
+                                onClick={() => setScreen('SHOP')} 
+                                className="bg-purple-600 text-white px-5 py-2 border-b-4 border-purple-800 rounded-2xl text-xl title-font shadow-xl active:translate-y-1 active:border-b-0 pointer-events-auto transition-all"
+                            >
+                                🛒 Tienda
+                            </button>
+                        )}
+                    </div>
+
+                    {screen === 'TITLE' && <TitleScreen setScreen={setScreen} setPlayer={setPlayer} player={player} />}
+                    {screen === 'MAP' && <MapScreen setScreen={setScreen} maxLevelUnlocked={maxLevelUnlocked} setCurrentLevel={setCurrentLevel} />}
+                    {screen === 'SHOP' && <ShopScreen setScreen={setScreen} stars={stars} setStars={setStars} player={player} setPlayer={setPlayer} />}
+                    {screen === 'COMBAT' && <CombatScreen 
+                        levelId={currentLevel} 
+                        setScreen={setScreen} 
+                        player={player} 
+                        playerMaxHp={playerMaxHp}
+                        stats={getTotalStats()} 
+                        setStars={setStars} 
+                        setMaxLevelUnlocked={setMaxLevelUnlocked} 
+                        maxLevelUnlocked={maxLevelUnlocked} 
+                    />}
+                </div>
+            );
+        }
+
+        // --- PANTALLA DE INICIO ---
+        function TitleScreen({ setScreen, setPlayer, player }) {
+            const avatars = ['👦', '👧', '🦸‍♂️', '🦸‍♀️', '🤖'];
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center bg-blue-500 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC4yIi8+PC9zdmc+')]">
+                    <h1 className="text-6xl text-center text-yellow-300 drop-shadow-[0_5px_0_#b45309] mb-8 animate-float leading-tight">
+                        SÚPER<br/>HÉROE<br/> LECTOR
+                    </h1>
+                    <div className="bg-white/20 p-6 rounded-3xl backdrop-blur-sm border-4 border-white/30 text-center mb-8">
+                        <h2 className="text-2xl mb-4">Elige tu Héroe</h2>
+                        <div className="flex gap-4">
+                            {avatars.map(a => (
+                                <button 
+                                    key={a}
+                                    onClick={() => setPlayer({...player, avatar: a})}
+                                    className={`text-5xl p-2 rounded-xl transition-transform ${player.avatar === a ? 'bg-yellow-400 scale-110 shadow-lg' : 'hover:bg-white/10'}`}
+                                >
+                                    {a}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => { speak("¡A jugar!"); setScreen('MAP'); }}
+                        className="bg-green-500 border-b-8 border-green-700 text-white title-font text-4xl px-12 py-4 rounded-full active:border-b-0 active:translate-y-2 transition-all"
+                    >
+                        ¡JUGAR!
+                    </button>
+                </div>
+            );
+        }
+
+        // --- PANTALLA DEL MAPA DE 50 NIVELES ---
+        function MapScreen({ setScreen, maxLevelUnlocked, setCurrentLevel }) {
+            const mapRef = useRef(null);
+            const activeLevelRef = useRef(null);
+
+            useEffect(() => {
+                if (mapRef.current) mapRef.current.focus();
+                if (activeLevelRef.current) {
+                    setTimeout(() => {
+                        activeLevelRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 100);
+                }
+            }, []);
+
+            return (
+                <div className="flex-1 map-bg-massive flex flex-col relative pt-16">
+                    <h2 className="title-font text-4xl text-center mt-4 text-white drop-shadow-lg z-10">Mapa Mundial</h2>
+                    <div className="text-center text-yellow-300 font-bold mb-2 z-10">Nivel de Héroe: {maxLevelUnlocked}</div>
+
+                    <div ref={mapRef} tabIndex={0} className="flex-1 overflow-y-auto hide-scroll p-4 flex flex-col-reverse items-center justify-start pb-40 outline-none">
+                        {LEVELS.map((level, index) => {
+                            const isUnlocked = level.id <= maxLevelUnlocked;
+                            const isCurrent = level.id === maxLevelUnlocked;
+                            
+                            // Lógica de Zig-Zag visual para el mapa
+                            const isEven = index % 2 === 0;
+                            const marginClass = isEven ? 'ml-0 sm:ml-24' : 'mr-0 sm:mr-24';
+                            const pathAngle = isEven ? 'rotate-[15deg] right-[-20px]' : '-rotate-[15deg] left-[-20px]';
+
+                            return (
+                                <div key={level.id} className={`relative flex flex-col items-center ${marginClass} my-4`}>
+                                    {index > 0 && <div className={`absolute w-4 h-20 bg-yellow-400/30 -bottom-16 z-0 ${pathAngle}`}></div>}
+                                    
+                                    <button 
+                                        ref={isCurrent ? activeLevelRef : null}
+                                        onClick={() => {
+                                            if (isUnlocked) {
+                                                setCurrentLevel(level.id);
+                                                speak("Viajando al nivel " + level.id);
+                                                setScreen('COMBAT');
+                                            } else {
+                                                speak("Nivel bloqueado");
+                                            }
+                                        }}
+                                        className={`relative z-10 w-20 h-20 sm:w-24 sm:h-24 rounded-full border-[6px] flex items-center justify-center text-3xl sm:text-4xl title-font transition-transform
+                                            ${isUnlocked ? 'bg-gradient-to-br from-red-400 to-red-600 border-white hover:scale-110 shadow-[0_0_20px_rgba(255,0,0,0.8)] cursor-pointer' : 'bg-gray-700 border-gray-500 opacity-80 cursor-not-allowed'}
+                                            ${isCurrent ? 'animate-bounce' : ''}
+                                        `}
+                                    >
+                                        {isUnlocked ? level.id : '🔒'}
+                                        {isCurrent && <span className="absolute -top-10 text-4xl animate-float pointer-events-none text-yellow-300 drop-shadow-md">👇</span>}
+                                    </button>
+                                    <span className="mt-2 font-bold text-shadow bg-black/60 px-3 py-1 rounded-full text-sm">{level.name}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- PANTALLA DE TIENDA ---
+        function ShopScreen({ setScreen, stars, setStars, player, setPlayer }) {
+            const buyItem = (item) => {
+                if (player.purchased.includes(item.id)) {
+                    setPlayer(p => ({ ...p, inventory: { ...p.inventory, [item.type]: item.id } }));
+                    speak("Equipado");
+                } else if (stars >= item.cost) {
+                    setStars(s => s - item.cost);
+                    setPlayer(p => ({
+                        ...p,
+                        purchased: [...p.purchased, item.id],
+                        inventory: { ...p.inventory, [item.type]: item.id }
+                    }));
+                    speak("¡Excelente compra!");
+                } else {
+                    speak("Necesitas jugar más para comprar esto");
+                }
+            };
+
+            return (
+                <div className="flex-1 bg-purple-900 p-6 flex flex-col pt-20">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="title-font text-4xl text-yellow-400">Tienda Súper</h2>
+                        <button onClick={() => setScreen('MAP')} className="bg-white/20 p-3 rounded-xl hover:bg-white/30 font-bold">❌ Volver</button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 overflow-y-auto hide-scroll pb-10">
+                        {SHOP_ITEMS.map(item => {
+                            const isOwned = player.purchased.includes(item.id);
+                            const isEquipped = player.inventory[item.type] === item.id;
+                            
+                            return (
+                                <div key={item.id} className={`bg-black/40 rounded-2xl p-3 flex flex-col items-center border-4 transition-transform hover:scale-105 ${isEquipped ? 'border-green-400' : 'border-white/10'}`}>
+                                    <div className="text-4xl mb-1">{item.emoji}</div>
+                                    <h3 className="font-bold text-center text-xs mb-1">{item.name}</h3>
+                                    <p className="text-[10px] text-gray-300 mb-2">{item.desc}</p>
+                                    
+                                    <button 
+                                        onClick={() => buyItem(item)}
+                                        className={`w-full py-2 rounded-xl text-sm font-bold active:scale-95 transition ${isEquipped ? 'bg-green-500 text-white' : isOwned ? 'bg-blue-500 text-white' : 'bg-yellow-400 text-black'}`}
+                                    >
+                                        {isEquipped ? 'PUESTO' : isOwned ? 'USAR' : `⭐ ${item.cost}`}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- PANTALLA DE COMBATE ---
+        function CombatScreen({ levelId, setScreen, player, playerMaxHp, stats, setStars, setMaxLevelUnlocked, maxLevelUnlocked }) {
+            const levelData = LEVELS[levelId - 1]; // Array empieza en 0
+            
+            const [currentWave, setCurrentWave] = useState(0); 
+            const [enemy, setEnemy] = useState(null);
+            const [hp, setHp] = useState(playerMaxHp);
+            const [turn, setTurn] = useState('INIT'); // INIT, PLAYER, ENEMY, ANIMATING, VICTORY, DEFEAT
+            const [combatMsg, setCombatMsg] = useState("¡Alerta de combate!");
+            
+            const [playerAnim, setPlayerAnim] = useState('');
+            const [enemyAnim, setEnemyAnim] = useState('animate-float');
+            const [floatingText, setFloatingText] = useState(null);
+
+            const [challenge, setChallenge] = useState(null);
+            const [lastWord, setLastWord] = useState(null);
+
+            // Inicializar enemigo al entrar o cambiar de oleada
+            useEffect(() => {
+                if (currentWave === levelData.totalWaves - 1) {
+                    // Es el Jefe
+                    setEnemy({ name: "JEFE", hp: levelData.bossHp, maxHp: levelData.bossHp, atk: levelData.bossAtk, emoji: levelData.theme.boss });
+                    setCombatMsg("¡CUIDADO! ¡Es el Jefe del nivel!");
+                    speak("¡Atención! Ha aparecido el jefe.");
+                } else {
+                    // Enemigo normal aleatorio de la temática
+                    const randomEnemy = levelData.theme.enemies[Math.floor(Math.random() * levelData.theme.enemies.length)];
+                    setEnemy({ name: "Enemigo", hp: levelData.enemyHp, maxHp: levelData.enemyHp, atk: levelData.enemyAtk, emoji: randomEnemy });
+                    setCombatMsg(`Combate ${currentWave + 1} de ${levelData.totalWaves}`);
+                }
+                setTimeout(() => {
+                    setTurn('PLAYER');
+                    generateChallenge();
+                }, 1500);
+            }, [currentWave]);
+
+            // Motor de desafíos (4 mecánicas posibles)
+            const generateChallenge = () => {
+                // Determinar qué mecánicas están disponibles según el nivel para no abrumar al inicio
+                const types = ['match', 'listen']; 
+                if (levelId >= 3) types.push('missing'); // A partir del lvl 3 introduce rellenar huecos
+                if (levelId >= 6) types.push('spell');   // A partir del lvl 6 introduce deletrear completo
+
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                let targetObj;
+                do {
+                    targetObj = DICTIONARY[Math.floor(Math.random() * DICTIONARY.length)];
+                } while (targetObj.w === lastWord);
+                setLastWord(targetObj.w);
+
+                if (type === 'match' || type === 'listen') {
+                    const others = DICTIONARY.filter(w => w.w !== targetObj.w).sort(() => Math.random() - 0.5).slice(0, 2);
+                    const options = [targetObj.m, others[0].m, others[1].m].sort(() => Math.random() - 0.5);
+                    setChallenge({ type, target: targetObj.w, options, correct: targetObj.m });
+                    
+                    if (type === 'match') speak("Lee la palabra: " + targetObj.w);
+                    if (type === 'listen') speak("Escucha y busca: " + targetObj.w);
+
+                } else if (type === 'spell') {
+                    const letters = targetObj.w.split('').sort(() => Math.random() - 0.5);
+                    setChallenge({ type, target: targetObj.w, currentIdx: 0, letters, selected: [] });
+                    speak("Escribe la palabra: " + targetObj.w);
+
+                } else if (type === 'missing') {
+                    const word = targetObj.w;
+                    const blankIdx = Math.floor(Math.random() * word.length);
+                    const correctLetter = word[blankIdx];
+                    
+                    // Generar 2 letras falsas
+                    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+                    const falseLetters = alphabet.filter(l => l !== correctLetter).sort(() => Math.random() - 0.5).slice(0, 2);
+                    const options = [correctLetter, ...falseLetters].sort(() => Math.random() - 0.5);
+                    
+                    setChallenge({ type, target: word, blankIdx, options, correct: correctLetter });
+                    speak("Completa la palabra");
+                }
+            };
+
+            const handlePlayerAttack = (success) => {
+                if (!success) {
+                    setCombatMsg("¡Ups! Te equivocaste.");
+                    speak("Ups. Intenta de nuevo.");
+                    setTimeout(() => enemyTurn(), 1000);
+                    return;
+                }
+
+                setTurn('ANIMATING');
+                setCombatMsg("¡ATAQUE PODEROSO!");
+                speak("¡Súper ataque!");
+                setPlayerAnim('animate-attack');
+                
+                setTimeout(() => {
+                    setPlayerAnim('');
+                    setEnemyAnim('animate-shake');
+                    
+                    const damage = stats.atk;
+                    const newHp = Math.max(0, enemy.hp - damage);
+                    setEnemy({ ...enemy, hp: newHp });
+                    showDamage(damage, 'enemy');
+                    
+                    setTimeout(() => {
+                        setEnemyAnim('animate-float');
+                        if (newHp === 0) {
+                            handleEnemyDefeat();
+                        } else {
+                            enemyTurn();
+                        }
+                    }, 1000);
+                }, 500);
+            };
+
+            const enemyTurn = () => {
+                setTurn('ENEMY');
+                setCombatMsg(`¡El enemigo ataca!`);
+                setEnemyAnim('animate-attack');
+                
+                setTimeout(() => {
+                    setEnemyAnim('animate-float');
+                    setPlayerAnim('animate-shake');
+                    
+                    let heal = 0;
+                    if (player.inventory.companion) {
+                        heal = SHOP_ITEMS.find(i => i.id === player.inventory.companion).stat;
+                    }
+
+                    const damage = Math.max(1, enemy.atk - stats.def);
+                    const finalHp = Math.max(0, Math.min(playerMaxHp, hp - damage + heal));
+                    
+                    setHp(finalHp);
+                    showDamage(damage, 'player');
+                    if (heal > 0) speak("Tu compañero te curó");
+                    
+                    setTimeout(() => {
+                        setPlayerAnim('');
+                        if (finalHp === 0) {
+                            setTurn('DEFEAT');
+                            speak("Oh no, necesitamos entrenar más. ¡Volvamos a intentarlo!");
+                        } else {
+                            setTurn('PLAYER');
+                            setCombatMsg("¡Es tu turno!");
+                            generateChallenge();
+                        }
+                    }, 1200);
+                }, 800);
+            };
+
+            const handleEnemyDefeat = () => {
+                if (currentWave < levelData.totalWaves - 1) {
+                    // Pasar a la siguiente oleada
+                    setTurn('ANIMATING');
+                    setCombatMsg("¡Enemigo vencido! Viene otro...");
+                    speak("¡Bien hecho! Prepárate para el siguiente.");
+                    setTimeout(() => {
+                        setCurrentWave(w => w + 1);
+                    }, 2000);
+                } else {
+                    // Victoria total del nivel
+                    setTurn('VICTORY');
+                    speak("¡Felicidades! Eres un súper lector.");
+                    // Dar estrellas: 10 si es nivel nuevo, 3 si está rejugando
+                    const reward = (levelId === maxLevelUnlocked) ? 10 : 3;
+                    setStars(s => s + reward); 
+                    if (levelId === maxLevelUnlocked && maxLevelUnlocked < 50) {
+                        setMaxLevelUnlocked(m => m + 1);
+                    }
+                }
+            };
+
+            const showDamage = (amount, target) => {
+                setFloatingText({ amount, target, id: Date.now() });
+                setTimeout(() => setFloatingText(null), 1200);
+            };
+
+            // Interacciones
+            const handleMatchClick = (opt) => {
+                if (turn !== 'PLAYER') return;
+                handlePlayerAttack(opt === challenge.correct);
+            };
+
+            const handleMissingClick = (opt) => {
+                if (turn !== 'PLAYER') return;
+                if (opt === challenge.correct) {
+                    speak(opt);
+                    handlePlayerAttack(true);
+                } else {
+                    handlePlayerAttack(false);
+                }
+            };
+
+            const handleSpellClick = (letter, index) => {
+                if (turn !== 'PLAYER') return;
+                const expectedLetter = challenge.target[challenge.currentIdx];
+                if (letter === expectedLetter) {
+                    speak(letter);
+                    const newSelected = [...challenge.selected, { l: letter, idx: index }];
+                    if (newSelected.length === challenge.target.length) {
+                        setChallenge({ ...challenge, selected: newSelected });
+                        setTimeout(() => handlePlayerAttack(true), 500);
+                    } else {
+                        setChallenge({ ...challenge, currentIdx: challenge.currentIdx + 1, selected: newSelected });
+                    }
+                } else {
+                    handlePlayerAttack(false);
+                }
+            };
+
+            if (!enemy) return <div className="flex-1 bg-black text-white text-center pt-20">Cargando Mundo...</div>;
+
+            return (
+                <div className={`flex-1 flex flex-col ${levelData.theme.bg} pt-12 relative overflow-hidden`}>
+                    {/* Fondo temático sutil en la pantalla de combate usando emojis gigantes semitransparentes */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-10 text-[25rem] pointer-events-none">
+                        {levelData.theme.bgIcon}
+                    </div>
+
+                    {/* Barra superior de combate */}
+                    <div className="bg-black/60 p-3 text-center mt-6 z-10 mx-4 rounded-2xl border-2 border-white/20 shadow-lg">
+                        <div className="flex justify-between px-4 mb-1">
+                            <span className="font-bold text-yellow-300">Nivel {levelData.id}: {levelData.theme.name}</span>
+                            <span className="font-bold text-red-400">Ola {currentWave + 1}/{levelData.totalWaves}</span>
+                        </div>
+                        <p className="text-lg">{combatMsg}</p>
+                    </div>
+
+                    {/* Escenario de Combate (Centro) */}
+                    <div className="flex-1 flex items-center justify-between px-6 sm:px-12 relative z-10">
+                        {/* Héroe */}
+                        <div className={`flex flex-col items-center ${playerAnim} relative`}>
+                            {floatingText?.target === 'player' && <div className="floating-damage top-[-40px] text-red-500">-{floatingText.amount}</div>}
+                            
+                            <div className="text-8xl drop-shadow-[0_15px_15px_rgba(0,0,0,0.6)] z-10 relative">
+                                {player.avatar}
+                                {player.inventory.weapon && <span className="absolute -right-6 top-2 text-4xl">{SHOP_ITEMS.find(i=>i.id===player.inventory.weapon).emoji}</span>}
+                                {player.inventory.companion && <span className="absolute -left-6 bottom-0 text-5xl">{SHOP_ITEMS.find(i=>i.id===player.inventory.companion).emoji}</span>}
+                            </div>
+                            
+                            {/* Barra HP Jugador */}
+                            <div className="w-28 h-5 bg-gray-900 rounded-full mt-4 border-2 border-white overflow-hidden relative">
+                                <div className="h-full bg-green-500 transition-all duration-500" style={{width: `${(hp/playerMaxHp)*100}%`}}></div>
+                                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">{hp}/{playerMaxHp}</span>
+                            </div>
+                        </div>
+
+                        {/* Enemigo */}
+                        <div className={`flex flex-col items-center ${enemyAnim} relative`}>
+                            {floatingText?.target === 'enemy' && <div className="floating-damage top-[-40px] text-white">-{floatingText.amount}</div>}
+                            
+                            <div className={`text-9xl drop-shadow-[0_15px_15px_rgba(0,0,0,0.6)] ${(currentWave === levelData.totalWaves - 1) ? 'scale-125' : ''}`}>
+                                {enemy.emoji}
+                            </div>
+                            
+                            {/* Barra HP Enemigo */}
+                            <div className="w-28 h-5 bg-gray-900 rounded-full mt-4 border-2 border-white overflow-hidden relative">
+                                <div className="h-full bg-red-600 transition-all duration-500" style={{width: `${(enemy.hp/enemy.maxHp)*100}%`}}></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Panel de Acción (Abajo) */}
+                    <div className="h-72 bg-slate-900 rounded-t-[40px] p-6 border-t-8 border-slate-700 shadow-[0_-10px_30px_rgba(0,0,0,0.8)] relative z-20">
+                        
+                        {turn === 'PLAYER' && challenge?.type === 'match' && (
+                            <div className="flex flex-col items-center h-full justify-center animate-fade-in">
+                                <h3 className="title-font text-2xl mb-4 text-blue-300">Lee: <span className="text-white text-5xl ml-2 tracking-widest">{challenge.target}</span></h3>
+                                <div className="flex gap-4">
+                                    {challenge.options.map((opt, i) => (
+                                        <button key={i} onClick={() => handleMatchClick(opt)} className="text-6xl bg-slate-800 p-4 rounded-2xl border-4 border-slate-600 hover:bg-slate-700 active:scale-95 transition-transform cursor-pointer shadow-lg">
+                                            {opt}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {turn === 'PLAYER' && challenge?.type === 'listen' && (
+                            <div className="flex flex-col items-center h-full justify-center animate-fade-in">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <button onClick={() => speak(challenge.target)} className="text-5xl bg-blue-500 p-4 rounded-full shadow-[0_5px_0_#1e3a8a] active:translate-y-1 active:shadow-none animate-bounce">
+                                        🔊
+                                    </button>
+                                    <h3 className="title-font text-2xl text-blue-300">Escucha e identifica</h3>
+                                </div>
+                                <div className="flex gap-4">
+                                    {challenge.options.map((opt, i) => (
+                                        <button key={i} onClick={() => handleMatchClick(opt)} className="text-6xl bg-slate-800 p-4 rounded-2xl border-4 border-slate-600 hover:bg-slate-700 active:scale-95 transition-transform cursor-pointer shadow-lg">
+                                            {opt}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {turn === 'PLAYER' && challenge?.type === 'missing' && (
+                            <div className="flex flex-col items-center h-full justify-center animate-fade-in">
+                                <h3 className="title-font text-xl mb-2 text-yellow-300">¿Qué letra falta?</h3>
+                                <div className="text-6xl title-font tracking-[0.5em] mb-6 border-b-4 border-white pb-2">
+                                    {challenge.target.split('').map((l, i) => i === challenge.blankIdx ? '_' : l).join('')}
+                                </div>
+                                <div className="flex gap-4">
+                                    {challenge.options.map((opt, i) => (
+                                        <button key={i} onClick={() => handleMissingClick(opt)} className="text-4xl title-font font-bold bg-purple-600 w-16 h-16 rounded-xl border-b-4 border-purple-800 hover:-translate-y-1 active:border-b-0 active:translate-y-1 transition-all cursor-pointer shadow-lg text-white">
+                                            {opt}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {turn === 'PLAYER' && challenge?.type === 'spell' && (
+                            <div className="flex flex-col items-center h-full justify-center animate-fade-in">
+                                <h3 className="title-font text-xl mb-2 text-green-300">Escribe la palabra:</h3>
+                                {/* Áreas de destino */}
+                                <div className="flex gap-2 mb-4 min-h-[4rem]">
+                                    {challenge.target.split('').map((l, i) => {
+                                        const charToDisplay = challenge.selected[i]?.l || "";
+                                        return (
+                                            <div key={i} className="w-12 h-12 sm:w-14 sm:h-14 border-b-4 border-white flex items-center justify-center text-4xl title-font text-yellow-400">
+                                                {charToDisplay}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                                {/* Botones desordenados */}
+                                <div className="flex gap-3 flex-wrap justify-center">
+                                    {challenge.letters.map((l, i) => {
+                                        const isUsed = challenge.selected.some(s => s.idx === i);
+                                        return (
+                                            <button 
+                                                key={i} 
+                                                onClick={() => !isUsed && handleSpellClick(l, i)}
+                                                className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl text-3xl sm:text-4xl title-font font-bold transition-all shadow-lg
+                                                    ${isUsed ? 'bg-slate-800 text-slate-700 opacity-50 scale-90 cursor-default' : 'bg-blue-500 border-b-4 border-blue-700 text-white hover:-translate-y-1 active:border-b-0 active:translate-y-1 cursor-pointer'}`}
+                                            >
+                                                {l}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {turn === 'ENEMY' && (
+                            <div className="flex items-center justify-center h-full">
+                                <div className="text-3xl title-font text-red-400 animate-pulse text-center">¡El enemigo está atacando!<br/><span className="text-xl text-white">¡Resiste!</span></div>
+                            </div>
+                        )}
+
+                        {turn === 'ANIMATING' && (
+                            <div className="flex items-center justify-center h-full">
+                                <div className="text-5xl title-font text-yellow-400 animate-bounce">¡BAM! 💥</div>
+                            </div>
+                        )}
+
+                        {turn === 'VICTORY' && (
+                            <div className="flex flex-col items-center justify-center h-full">
+                                <div className="text-4xl sm:text-5xl title-font text-yellow-400 mb-4 animate-bounce text-center">¡NIVEL SUPERADO! 🌟🌟</div>
+                                <button onClick={() => setScreen('MAP')} className="bg-green-500 text-white px-8 py-3 rounded-full title-font text-2xl border-b-4 border-green-700 active:translate-y-1 active:border-b-0 cursor-pointer shadow-xl">Volver al Mapa</button>
+                            </div>
+                        )}
+
+                        {turn === 'DEFEAT' && (
+                            <div className="flex flex-col items-center justify-center h-full">
+                                <div className="text-3xl title-font text-gray-300 mb-4 text-center">¡Uf! Estuvo muy cerca.</div>
+                                <button onClick={() => setScreen('MAP')} className="bg-blue-500 text-white px-8 py-3 rounded-full title-font text-2xl border-b-4 border-blue-700 active:translate-y-1 active:border-b-0 cursor-pointer shadow-xl">Intentar de Nuevo</button>
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
