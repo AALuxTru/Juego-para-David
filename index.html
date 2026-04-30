@@ -62,18 +62,18 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- SISTEMA DE VOZ ---
-        const speak = (text) => {
+        // --- SISTEMA DE VOZ (AJUSTADO PARA EVITAR TRAMPA) ---
+        const speak = (text, isClue = false) => {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
+                // Si no es una pista directa (como el modo listen), censuramos la palabra para que lean
                 const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = 'es-ES'; msg.rate = 0.9; msg.pitch = 1.1;
                 window.speechSynthesis.speak(msg);
             }
         };
 
-        // --- BASE DE DATOS DE BIOMAS Y DICCIONARIOS CONTEXTUALES ---
-        // Jefes variados por bioma
+        // --- BASE DE DATOS DE BIOMAS Y DICCIONARIOS ---
         const BIOMES = [
             {
                 id: 0, name: "Pradera Feliz", 
@@ -128,129 +128,67 @@
             {
                 id: 5, name: "Volcán Ardiente", 
                 img: "https://images.unsplash.com/photo-1467348733814-3919a263f77d?auto=format&fit=crop&w=800&q=80",
-                enemies: ["🔥", "👺", "☄️", "🌋"], bosses: ["🐉", "🦖", "🌋", "👺"],
+                enemies: ["🔥", "👺", "☄️", "🌋"], bosses: ["🐉", "Rex", "🌋", "👺"],
                 words: [
                     {w: "FUEGO", m: "🔥"}, {w: "LAVA", m: "🌋"}, {w: "HUMO", m: "💨"}, {w: "ROJO", m: "🔴"},
                     {w: "PIEDRA", m: "🪨"}, {w: "CENIZA", m: "🌫️"}, {w: "DRAGON", m: "🐉"}, {w: "MAGMA", m: "🔥"},
                     {w: "QUEMA", m: "🔥"}, {w: "CALOR", m: "🥵"}
                 ]
-            },
-            {
-                id: 6, name: "Ciudad Mágica", 
-                img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
-                enemies: ["🪄", "🔮", "🎩", "🧹"], bosses: ["🧙‍♀️", "🧞‍♂️", "🧝‍♂️", "🧚‍♀️"],
-                words: [
-                    {w: "MAGIA", m: "✨"}, {w: "LIBRO", m: "📖"}, {w: "POCION", m: "🧪"}, {w: "VARITA", m: "🪄"},
-                    {w: "ESTRELLA", m: "⭐"}, {w: "GATO", m: "🐈‍⬛"}, {w: "ESCOBA", m: "🧹"}, {w: "CAPA", m: "🧛"},
-                    {w: "BOLA", m: "🔮"}, {w: "LLAVE", m: "🗝️"}
-                ]
-            },
-            {
-                id: 7, name: "Castillo Real", 
-                img: "https://images.unsplash.com/photo-1533154683836-84ea7a0bc310?auto=format&fit=crop&w=800&q=80",
-                enemies: ["🤺", "🛡️", "🏹", "🐎"], bosses: ["👑", "🫅", "🧙‍♂️", "🐉"],
-                words: [
-                    {w: "REY", m: "👑"}, {w: "REINA", m: "👸"}, {w: "CORONA", m: "👑"}, {w: "ESPADA", m: "🗡️"},
-                    {w: "ESCUDO", m: "🛡️"}, {w: "CASTILLO", m: "🏰"}, {w: "CABALLO", m: "🐎"}, {w: "PUERTA", m: "🚪"},
-                    {w: "TORRE", m: "🗼"}, {w: "TRONO", m: "🪑"}
-                ]
-            },
-            {
-                id: 8, name: "Cielo Infinito", 
-                img: "https://images.unsplash.com/photo-1495430288918-03be19c7c485?auto=format&fit=crop&w=800&q=80",
-                enemies: ["☁️", "🦅", "🪁", "🎈"], bosses: ["🌪️", "🐉", "🦅", "🛸"],
-                words: [
-                    {w: "VIENTO", m: "💨"}, {w: "AVE", m: "🐦"}, {w: "ALAS", m: "🪽"}, {w: "GLOBO", m: "🎈"},
-                    {w: "COMETA", m: "🪁"}, {w: "RAYO", m: "⚡"}, {w: "NUBE", m: "☁️"}, {w: "LLUVIA", m: "🌧️"},
-                    {w: "CIELO", m: "🌌"}, {w: "SOL", m: "☀️"}
-                ]
-            },
-            {
-                id: 9, name: "El Espacio", 
-                img: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
-                enemies: ["👽", "🛸", "🛰️", "🤖"], bosses: ["👾", "👽", "🛸", "☄️"],
-                words: [
-                    {w: "PLANETA", m: "🪐"}, {w: "NAVE", m: "🚀"}, {w: "LUNA", m: "🌖"}, {w: "ESTRELLA", m: "⭐"},
-                    {w: "SOL", m: "🌞"}, {w: "ALIEN", m: "👽"}, {w: "ROBOT", m: "🤖"}, {w: "COHETE", m: "🚀"},
-                    {w: "TIERRA", m: "🌍"}, {w: "ASTRO", m: "👨‍🚀"}
-                ]
             }
         ];
 
-        // --- TIENDA MASIVA ---
+        // Todos las palabras posibles para generar distractores si un bioma tiene pocas
+        const ALL_WORDS = BIOMES.flatMap(b => b.words);
+
+        // --- TIENDA ---
         const SHOP_ITEMS = [
-            // ARMAS (Aumentan Daño)
             { id: 'w1', type: 'weapon', name: "Palo de Madera", emoji: "🪵", stat: 15, cost: 30, desc: "+15 Daño" },
             { id: 'w2', type: 'weapon', name: "Espada de Juguete", emoji: "🗡️", stat: 30, cost: 80, desc: "+30 Daño" },
             { id: 'w3', type: 'weapon', name: "Hacha de Piedra", emoji: "🪓", stat: 60, cost: 200, desc: "+60 Daño" },
             { id: 'w4', type: 'weapon', name: "Lanza Larga", emoji: "🦯", stat: 100, cost: 450, desc: "+100 Daño" },
             { id: 'w5', type: 'weapon', name: "Martillo Gigante", emoji: "🔨", stat: 150, cost: 900, desc: "+150 Daño" },
             { id: 'w6', type: 'weapon', name: "Espada de Fuego", emoji: "🔥🗡️", stat: 250, cost: 1800, desc: "+250 Daño" },
-            { id: 'w7', type: 'weapon', name: "Varita Mágica", emoji: "🪄", stat: 400, cost: 3500, desc: "+400 Daño" },
-            { id: 'w8', type: 'weapon', name: "Sable Láser", emoji: "🎇", stat: 700, cost: 6000, desc: "+700 Daño" },
-            { id: 'w9', type: 'weapon', name: "Espada Galáctica", emoji: "🌌🗡️", stat: 1200, cost: 12000, desc: "+1200 Daño" },
-
-            // ARMADURAS (Reducen Daño Recibido)
             { id: 'a1', type: 'armor', name: "Camiseta Fuerte", emoji: "👕", stat: 5, cost: 30, desc: "+5 Defensa" },
             { id: 'a2', type: 'armor', name: "Casco de Bici", emoji: "🪖", stat: 15, cost: 100, desc: "+15 Defensa" },
             { id: 'a3', type: 'armor', name: "Escudo de Madera", emoji: "🛡️", stat: 30, cost: 250, desc: "+30 Defensa" },
             { id: 'a4', type: 'armor', name: "Pechera de Cuero", emoji: "🦺", stat: 60, cost: 600, desc: "+60 Defensa" },
-            { id: 'a5', type: 'armor', name: "Armadura Caballero", emoji: "🤺", stat: 120, cost: 1500, desc: "+120 Defensa" },
-            { id: 'a6', type: 'armor', name: "Escudo Mágico", emoji: "🔮🛡️", stat: 250, cost: 3000, desc: "+250 Defensa" },
-            { id: 'a7', type: 'armor', name: "Traje de Robot", emoji: "🤖", stat: 500, cost: 7000, desc: "+500 Defensa" },
-            { id: 'a8', type: 'armor', name: "Campo de Fuerza", emoji: "🔵", stat: 1000, cost: 15000, desc: "+1000 Def" },
-
-            // MASCOTAS (Curan HP en cada turno del jugador)
             { id: 'c1', type: 'companion', name: "Perrito Fiel", emoji: "🐶", stat: 10, cost: 150, desc: "Cura 10 HP/Turno" },
             { id: 'c2', type: 'companion', name: "Gatito Suave", emoji: "🐱", stat: 25, cost: 400, desc: "Cura 25 HP/Turno" },
-            { id: 'c3', type: 'companion', name: "Tortuga Sabia", emoji: "🐢", stat: 60, cost: 1000, desc: "Cura 60 HP/Turno" },
-            { id: 'c4', type: 'companion', name: "Búho Mágico", emoji: "🦉", stat: 120, cost: 2500, desc: "Cura 120 HP/Turno" },
-            { id: 'c5', type: 'companion', name: "Hada Brillante", emoji: "🧚", stat: 250, cost: 5000, desc: "Cura 250 HP/Turno" },
-            { id: 'c6', type: 'companion', name: "Dragón Bebé", emoji: "🐲", stat: 500, cost: 10000, desc: "Cura 500 HP/Turno" },
-            { id: 'c7', type: 'companion', name: "Ave Fénix", emoji: "🦅🔥", stat: 1000, cost: 20000, desc: "Cura 1000 HP" }
+            { id: 'c3', type: 'companion', name: "Tortuga Sabia", emoji: "🐢", stat: 60, cost: 1000, desc: "Cura 60 HP/Turno" }
         ];
 
-        // --- GENERADOR DE 50 NIVELES ---
-        const LEVELS = Array.from({ length: 50 }, (_, i) => {
+        const LEVELS = Array.from({ length: 30 }, (_, i) => {
             const levelId = i + 1;
-            const biomeIndex = Math.floor((levelId - 1) / 5);
+            const biomeIndex = Math.min(Math.floor((levelId - 1) / 5), BIOMES.length - 1);
             const biome = BIOMES[biomeIndex];
-            
-            // Oleadas: 1-9 (3), 10-19 (4), 20-29 (5), etc.
             const waves = Math.floor((levelId - 1) / 10) + 3; 
-            
-            // Recompensas escalares enormes para poder comprar cosas caras
-            const starReward = levelId * 15 + Math.floor(Math.pow(levelId, 1.5) * 5); 
+            const starReward = levelId * 20 + Math.floor(Math.pow(levelId, 1.6) * 5); 
 
             return {
                 id: levelId,
                 name: `${biome.name} - Nivel ${levelId}`,
                 biome: biome,
                 totalWaves: waves,
-                enemyHpBase: 25 + (levelId * 20) + Math.floor(Math.pow(levelId, 1.8)),
-                enemyAtkBase: 8 + (levelId * 5) + Math.floor(levelId * 1.5),
+                enemyHpBase: 25 + (levelId * 22),
+                enemyAtkBase: 8 + (levelId * 6),
                 reward: starReward
             };
         });
 
-        // --- COMPONENTE PRINCIPAL ---
         function App() {
-            const [screen, setScreen] = useState('TITLE'); // TITLE, MAP, SHOP, COMBAT
+            const [screen, setScreen] = useState('TITLE');
             const [stars, setStars] = useState(0);
             const [maxLevel, setMaxLevel] = useState(1);
             const [currentLvl, setCurrentLvl] = useState(null);
-            
             const [player, setPlayer] = useState({
                 avatar: '👦',
                 inv: { weapon: null, armor: null, companion: null },
                 purchased: []
             });
 
-            // HP Maximo crece automáticamente al subir de nivel
-            const playerMaxHp = 100 + (maxLevel * 30);
-
+            const playerMaxHp = 100 + (maxLevel * 35);
             const stats = useMemo(() => {
-                let atk = 20 + (maxLevel * 5);
+                let atk = 20 + (maxLevel * 6);
                 let def = 0;
                 let heal = 0;
                 if (player.inv.weapon) atk += SHOP_ITEMS.find(i => i.id === player.inv.weapon).stat;
@@ -260,7 +198,7 @@
             }, [player.inv, maxLevel]);
 
             return (
-                <div className="w-full h-full relative" style={{ height: 'var(--app-height)' }}>
+                <div className="w-full h-full relative">
                     {screen === 'TITLE' && <TitleScreen onStart={() => setScreen('MAP')} setPlayer={setPlayer} player={player} />}
                     {screen === 'MAP' && <MapScreen maxLevel={maxLevel} onSelect={(lvl) => { setCurrentLvl(lvl); setScreen('COMBAT'); }} stars={stars} onShop={() => setScreen('SHOP')} />}
                     {screen === 'SHOP' && <ShopScreen stars={stars} setStars={setStars} player={player} setPlayer={setPlayer} onBack={() => setScreen('MAP')} />}
@@ -271,7 +209,7 @@
                             playerMaxHp={playerMaxHp}
                             stats={stats}
                             onWin={() => {
-                                if (currentLvl.id === maxLevel && maxLevel < 50) setMaxLevel(m => m + 1);
+                                if (currentLvl.id === maxLevel && maxLevel < 30) setMaxLevel(m => m + 1);
                                 setStars(s => s + currentLvl.reward);
                                 setScreen('MAP');
                             }}
@@ -282,39 +220,30 @@
             );
         }
 
-        // --- PANTALLA DE INICIO ---
         function TitleScreen({ onStart, setPlayer, player }) {
             const avatars = ['👦', '👧', '🦁', '🦖', '🤖', '👸'];
-
             const handleStart = () => {
-                // Desbloqueo de audio silencioso para navegadores móviles (es crucial hacerlo en un onClick real)
                 const dummy = new SpeechSynthesisUtterance('');
                 window.speechSynthesis.speak(dummy);
-                
-                speak("¡A jugar!");
+                speak("¡Hola! Vamos a jugar");
                 onStart();
             };
-
             return (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-indigo-900 p-6 text-center bg-[url('https://images.unsplash.com/photo-1534796636912-36528502f5d5?auto=format&fit=crop&w=800&q=80')] bg-cover bg-center relative">
                     <div className="absolute inset-0 bg-black/60"></div>
                     <div className="relative z-10 flex flex-col items-center">
-                        <h1 className="title-font text-6xl text-yellow-400 mb-2 drop-shadow-[0_5px_5px_rgba(0,0,0,1)]">SÚPER RPG</h1>
-                        <h2 className="title-font text-4xl text-white mb-10 drop-shadow-[0_5px_5px_rgba(0,0,0,1)]">DE LECTURA</h2>
-                        
-                        <div className="bg-white/20 p-6 rounded-3xl backdrop-blur-md mb-10 border-4 border-white/30">
-                            <p className="title-font text-2xl text-yellow-300 mb-6 drop-shadow-md">ELIGE TU HÉROE</p>
+                        <h1 className="title-font text-6xl text-yellow-400 mb-2 drop-shadow-xl">SÚPER RPG</h1>
+                        <h2 className="title-font text-4xl text-white mb-10 drop-shadow-lg">DE LECTURA</h2>
+                        <div className="bg-white/10 p-6 rounded-3xl backdrop-blur-md mb-10 border-2 border-white/20">
+                            <p className="title-font text-2xl text-yellow-200 mb-6">ELIGE TU HÉROE</p>
                             <div className="grid grid-cols-3 gap-4">
                                 {avatars.map(a => (
-                                    <button 
-                                        key={a}
-                                        onClick={() => { setPlayer({...player, avatar: a}); speak("Excelente elección"); }}
-                                        className={`text-6xl p-4 rounded-2xl transition-all ${player.avatar === a ? 'bg-yellow-400 scale-110 shadow-[0_0_20px_#fbbf24]' : 'bg-black/40 hover:bg-white/20'}`}
+                                    <button key={a} onClick={() => { setPlayer({...player, avatar: a}); speak("¡Me gusta!"); }}
+                                        className={`text-6xl p-4 rounded-2xl transition-all ${player.avatar === a ? 'bg-yellow-400 scale-110 shadow-xl' : 'bg-black/40 hover:bg-white/10'}`}
                                     >{a}</button>
                                 ))}
                             </div>
                         </div>
-                        
                         <button onClick={handleStart} className="bg-green-500 text-white title-font text-4xl px-12 py-5 rounded-full border-b-8 border-green-700 active:border-b-0 active:translate-y-2 shadow-2xl">
                             ¡EMPEZAR!
                         </button>
@@ -323,128 +252,32 @@
             );
         }
 
-        // --- PANTALLA DEL MAPA ---
         function MapScreen({ maxLevel, onSelect, stars, onShop }) {
             const mapRef = useRef(null);
-
             useEffect(() => {
                 const activeLvl = document.getElementById(`lvl-${maxLevel}`);
-                if (activeLvl && mapRef.current) {
-                    activeLvl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
+                if (activeLvl && mapRef.current) activeLvl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }, [maxLevel]);
-
             return (
                 <div className="w-full h-full bg-slate-900 custom-scroll relative" ref={mapRef}>
                     <div className="fixed top-0 left-0 w-full z-40 p-4 flex justify-between items-center bg-slate-900/80 backdrop-blur-md border-b-4 border-slate-700">
                         <div className="flex items-center gap-2 bg-yellow-400 border-4 border-yellow-600 px-5 py-2 rounded-full text-black title-font text-xl shadow-lg">
                             <span>⭐</span><span>{stars.toLocaleString()}</span>
                         </div>
-                        <button onClick={onShop} className="bg-purple-600 text-white border-b-4 border-purple-800 px-6 py-2 rounded-full title-font text-xl active:border-b-0 active:translate-y-1 shadow-lg">
-                            🛒 TIENDA
-                        </button>
+                        <button onClick={onShop} className="bg-purple-600 text-white border-b-4 border-purple-800 px-6 py-2 rounded-full title-font text-xl active:translate-y-1 shadow-lg">🛒 TIENDA</button>
                     </div>
-
                     <div className="flex flex-col-reverse items-center pt-32 pb-48 gap-8 relative">
                         {LEVELS.map((lvl, idx) => {
                             const isLocked = lvl.id > maxLevel;
                             const isCurrent = lvl.id === maxLevel;
-                            const isBossLevel = lvl.id % 5 === 0;
-                            const offsetX = (idx % 2 === 0) ? 'translate-x-12' : '-translate-x-12';
-
+                            const isBoss = lvl.id % 5 === 0;
                             return (
-                                <div key={lvl.id} id={`lvl-${lvl.id}`} className={`relative flex flex-col items-center ${offsetX}`}>
-                                    {lvl.id < 50 && (
-                                        <div className={`absolute bottom-full mb-0 w-4 h-12 rounded-full ${isLocked ? 'bg-slate-700' : 'bg-yellow-400'}`}></div>
-                                    )}
-                                    
-                                    <div className="flex items-center gap-4">
-                                        {idx % 2 !== 0 && !isLocked && <span className="text-sm title-font text-yellow-200 bg-black/50 px-3 py-1 rounded-full">{lvl.biome.name}</span>}
-                                        
-                                        <button 
-                                            disabled={isLocked}
-                                            onClick={() => { speak(`Nivel ${lvl.id}`); onSelect(lvl); }}
-                                            className={`w-24 h-24 sm:w-28 sm:h-28 rounded-[2rem] border-8 flex flex-col items-center justify-center transition-all z-10
-                                                ${isLocked ? 'bg-slate-800 border-slate-600 text-slate-500 opacity-60' : 
-                                                  isBossLevel ? 'bg-red-500 border-red-700 text-white shadow-[0_0_20px_red]' : 'bg-blue-500 border-blue-300 text-white shadow-xl'}
-                                                ${isCurrent ? 'current-level scale-110' : 'active:scale-95'}
-                                            `}
-                                        >
-                                            <span className="title-font text-3xl sm:text-4xl">{isLocked ? '🔒' : lvl.id}</span>
-                                            {isBossLevel && !isLocked && <span className="text-xl mt-1">👑</span>}
-                                            {isCurrent && <span className="absolute -top-10 text-4xl animate-float">👇</span>}
-                                        </button>
-
-                                        {idx % 2 === 0 && !isLocked && <span className="text-sm title-font text-yellow-200 bg-black/50 px-3 py-1 rounded-full">{lvl.biome.name}</span>}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            );
-        }
-
-        // --- PANTALLA DE TIENDA ---
-        function ShopScreen({ stars, setStars, player, setPlayer, onBack }) {
-            const [filter, setFilter] = useState('weapon');
-
-            const handleBuy = (item) => {
-                if (player.purchased.includes(item.id)) {
-                    setPlayer(p => ({ ...p, inv: { ...p.inv, [item.type]: item.id } }));
-                    speak("¡Equipado!");
-                } else if (stars >= item.cost) {
-                    setStars(s => s - item.cost);
-                    setPlayer(p => ({
-                        ...p,
-                        purchased: [...p.purchased, item.id],
-                        inv: { ...p.inv, [item.type]: item.id }
-                    }));
-                    speak("¡Excelente compra!");
-                } else {
-                    speak("Necesitas más estrellas");
-                }
-            };
-
-            const filteredItems = SHOP_ITEMS.filter(i => i.type === filter);
-
-            return (
-                <div className="w-full h-full bg-slate-900 flex flex-col">
-                    <div className="p-4 flex justify-between items-center bg-slate-800 border-b-4 border-slate-700">
-                        <div className="flex items-center gap-2 bg-yellow-400 border-4 border-yellow-600 px-4 py-2 rounded-full text-black title-font text-xl">
-                            ⭐ {stars.toLocaleString()}
-                        </div>
-                        <button onClick={onBack} className="bg-red-500 text-white border-b-4 border-red-700 px-6 py-2 rounded-full title-font text-xl active:translate-y-1 active:border-b-0">
-                            VOLVER
-                        </button>
-                    </div>
-
-                    <div className="flex gap-2 p-4 justify-center">
-                        <button onClick={() => setFilter('weapon')} className={`px-6 py-3 rounded-2xl title-font text-xl transition-all ${filter==='weapon'?'bg-red-500 text-white scale-110':'bg-slate-700 text-slate-300'}`}>⚔️ Armas</button>
-                        <button onClick={() => setFilter('armor')} className={`px-6 py-3 rounded-2xl title-font text-xl transition-all ${filter==='armor'?'bg-blue-500 text-white scale-110':'bg-slate-700 text-slate-300'}`}>🛡️ Ropa</button>
-                        <button onClick={() => setFilter('companion')} className={`px-6 py-3 rounded-2xl title-font text-xl transition-all ${filter==='companion'?'bg-green-500 text-white scale-110':'bg-slate-700 text-slate-300'}`}>🐶 Mascotas</button>
-                    </div>
-
-                    <div className="flex-1 custom-scroll p-4 grid grid-cols-2 gap-4 pb-10">
-                        {filteredItems.map(item => {
-                            const owned = player.purchased.includes(item.id);
-                            const equipped = player.inv[item.type] === item.id;
-                            const canAfford = stars >= item.cost;
-
-                            return (
-                                <div key={item.id} className={`bg-slate-800 border-4 rounded-3xl p-4 flex flex-col items-center text-center transition-transform ${equipped ? 'border-green-400 shadow-[0_0_15px_#4ade80]' : 'border-slate-600'}`}>
-                                    <span className="text-6xl mb-2">{item.emoji}</span>
-                                    <h4 className="title-font text-white text-sm mb-1 leading-tight">{item.name}</h4>
-                                    <p className="text-cyan-400 font-bold text-xs mb-3 bg-black/50 px-2 py-1 rounded-full">{item.desc}</p>
-                                    
-                                    <button 
-                                        onClick={() => handleBuy(item)}
-                                        className={`w-full py-3 rounded-xl title-font text-lg border-b-4 active:border-b-0 active:translate-y-1 transition-all
-                                            ${equipped ? 'bg-green-500 border-green-700 text-white' : 
-                                              owned ? 'bg-blue-500 border-blue-700 text-white' : 
-                                              canAfford ? 'bg-yellow-400 border-yellow-600 text-black' : 'bg-slate-600 border-slate-700 text-slate-400'}`}
-                                    >
-                                        {equipped ? 'PUESTO' : owned ? 'USAR' : `⭐ ${item.cost.toLocaleString()}`}
+                                <div key={lvl.id} id={`lvl-${lvl.id}`} className={`relative flex flex-col items-center ${(idx % 2 === 0) ? 'translate-x-12' : '-translate-x-12'}`}>
+                                    <button disabled={isLocked} onClick={() => onSelect(lvl)}
+                                        className={`w-24 h-24 rounded-3xl border-8 flex flex-col items-center justify-center transition-all z-10
+                                            ${isLocked ? 'bg-slate-800 border-slate-700 text-slate-600 opacity-60' : isBoss ? 'bg-red-500 border-red-700 text-white shadow-[0_0_20px_red]' : 'bg-blue-500 border-blue-400 text-white shadow-xl'}
+                                            ${isCurrent ? 'current-level scale-110' : 'active:scale-95'}`}>
+                                        <span className="title-font text-4xl">{isLocked ? '🔒' : lvl.id}</span>
                                     </button>
                                 </div>
                             );
@@ -454,369 +287,315 @@
             );
         }
 
-        // --- PANTALLA DE COMBATE ---
+        function ShopScreen({ stars, setStars, player, setPlayer, onBack }) {
+            const [filter, setFilter] = useState('weapon');
+            const handleBuy = (item) => {
+                if (player.purchased.includes(item.id)) {
+                    setPlayer(p => ({ ...p, inv: { ...p.inv, [item.type]: item.id } }));
+                    speak("¡Equipado!");
+                } else if (stars >= item.cost) {
+                    setStars(s => s - item.cost);
+                    setPlayer(p => ({ ...p, purchased: [...p.purchased, item.id], inv: { ...p.inv, [item.type]: item.id } }));
+                    speak("¡Gracias!");
+                }
+            };
+            return (
+                <div className="w-full h-full bg-slate-900 flex flex-col">
+                    <div className="p-4 flex justify-between items-center bg-slate-800 border-b-4 border-slate-700">
+                        <div className="bg-yellow-400 border-4 border-yellow-600 px-4 py-1 rounded-full text-black title-font text-xl">⭐ {stars.toLocaleString()}</div>
+                        <button onClick={onBack} className="bg-red-500 text-white px-6 py-2 rounded-full title-font">VOLVER</button>
+                    </div>
+                    <div className="flex gap-2 p-4 justify-center">
+                        {['weapon', 'armor', 'companion'].map(f => (
+                            <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-xl title-font ${filter===f?'bg-blue-500 text-white':'bg-slate-700 text-slate-400'}`}>
+                                {f==='weapon'?'⚔️':f==='armor'?'🛡️':'🐶'}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex-1 custom-scroll p-4 grid grid-cols-2 gap-4 pb-10">
+                        {SHOP_ITEMS.filter(i => i.type === filter).map(item => {
+                            const owned = player.purchased.includes(item.id);
+                            const equipped = player.inv[item.type] === item.id;
+                            return (
+                                <div key={item.id} className={`bg-slate-800 border-4 rounded-3xl p-4 flex flex-col items-center text-center ${equipped ? 'border-green-400' : 'border-slate-600'}`}>
+                                    <span className="text-5xl mb-2">{item.emoji}</span>
+                                    <h4 className="title-font text-white text-xs">{item.name}</h4>
+                                    <button onClick={() => handleBuy(item)} className={`w-full mt-3 py-2 rounded-xl title-font text-sm ${equipped ? 'bg-green-600' : owned ? 'bg-blue-600' : 'bg-yellow-500 text-black'}`}>
+                                        {equipped ? 'PUESTO' : owned ? 'USAR' : `${item.cost}`}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
+
         function CombatScreen({ level, playerAvatar, playerMaxHp, stats, onWin, onLose }) {
             const [wave, setWave] = useState(1);
             const [php, setPhp] = useState(playerMaxHp);
-            const [enemies, setEnemies] = useState([]);
-            
+            const [enemies, setEnemies] = useState(null);
             const [challenge, setChallenge] = useState(null);
             const [msg, setMsg] = useState("¡Prepárate!");
-            const [turn, setTurn] = useState('PLAYER'); // PLAYER, ENEMY, ANIMATING, END
-            const [dmgFlow, setDmgFlow] = useState(null); // { side, val }
-            
+            const [turn, setTurn] = useState('INIT');
+            const [dmgFlow, setDmgFlow] = useState(null);
             const [playerAnim, setPlayerAnim] = useState('animate-float');
             const [enemyAnim, setEnemyAnim] = useState('animate-float');
 
-            // Generar Enemigos para la oleada actual
+            // Generar oleada y enemigos
             useEffect(() => {
-                if (turn === 'END') return;
-
                 const isBoss = wave === level.totalWaves;
-                let hordeSize = 1;
-                
-                // Lógica de Hordas
-                if (!isBoss && level.id >= 10 && Math.random() > 0.5) hordeSize = 2;
-                if (!isBoss && level.id >= 30 && Math.random() > 0.7) hordeSize = 3;
-
-                const newEnemies = [];
-                for(let i=0; i < (isBoss ? 1 : hordeSize); i++) {
-                    // Seleccionar un enemigo al azar, y si es jefe un jefe al azar del arreglo
-                    const pool = isBoss ? level.biome.bosses : level.biome.enemies;
-                    newEnemies.push(pool[Math.floor(Math.random() * pool.length)]);
-                }
-
-                const multiplier = isBoss ? 2 : hordeSize;
-                const totalHp = level.enemyHpBase * multiplier;
+                let hordeSize = isBoss ? 1 : (level.id > 10 ? (Math.random() > 0.6 ? 2 : 1) : 1);
+                const pool = isBoss ? level.biome.bosses : level.biome.enemies;
+                const newEnemies = Array.from({length: hordeSize}, () => pool[Math.floor(Math.random() * pool.length)]);
+                const hp = level.enemyHpBase * (isBoss ? 2.5 : hordeSize);
                 
                 setEnemies({
                     emojis: newEnemies,
-                    hp: totalHp,
-                    maxHp: totalHp,
-                    atk: level.enemyAtkBase * (isBoss ? 1.5 : (1 + (hordeSize-1)*0.5)),
-                    name: isBoss ? "¡SÚPER JEFE!" : hordeSize > 1 ? "¡HORDA!" : "Enemigo"
+                    hp: hp,
+                    maxHp: hp,
+                    atk: level.enemyAtkBase * (isBoss ? 1.4 : 1),
+                    name: isBoss ? "JEFE GIGANTE" : "Enemigo",
+                    isBoss: isBoss
                 });
 
-                if (isBoss) speak("¡Cuidado! ¡Es el Jefe final!");
-                else if (hordeSize > 1) speak("¡Oh no! ¡Son muchos!");
-                else speak("¡Al ataque!");
-
+                speak(isBoss ? "¡Cuidado! El jefe ha llegado." : "¡Un enemigo aparece!");
                 setTimeout(() => setTurn('PLAYER'), 1000);
             }, [wave]);
 
-            // Generar desafío de lectura (¡AHORA 4 MECÁNICAS!)
+            // Generar desafío (CORRECCIÓN DE BUG DE OPCIONES)
             useEffect(() => {
-                if (turn === 'PLAYER' && enemies.hp > 0) {
+                if (turn === 'PLAYER' && enemies && enemies.hp > 0) {
                     const dict = level.biome.words;
                     const correctTarget = dict[Math.floor(Math.random() * dict.length)];
                     
-                    // Extraer palabras falsas globalmente
-                    const allWords = BIOMES.flatMap(b => b.words);
-                    const wrongWords = allWords.filter(w => w.w !== correctTarget.w).sort(() => Math.random() - 0.5);
-                    
-                    // Seleccionar mecánica según el nivel
-                    const availableTypes = ['match', 'listen'];
-                    if (level.id >= 3) availableTypes.push('missing');
-                    if (level.id >= 6) availableTypes.push('spell');
-                    const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+                    // MECÁNICA ALEATORIA
+                    const types = ['match', 'listen'];
+                    if (level.id >= 3) types.push('missing');
+                    if (level.id >= 6) types.push('spell');
+                    const type = types[Math.floor(Math.random() * types.length)];
+
+                    // --- RECOLECCIÓN SEGURA DE DISTRACTORES ---
+                    // Buscamos palabras que NO sean la correcta en todo el diccionario global para que nunca falten
+                    const distractors = ALL_WORDS
+                        .filter(w => w.w !== correctTarget.w)
+                        .sort(() => Math.random() - 0.5)
+                        .slice(0, 2);
 
                     if (type === 'match' || type === 'listen') {
-                        // Corrección: Usar y para no dejar las opciones en blanco
-                        const options = [correctTarget.m, wrongWords.m, wrongWords.m].sort(() => Math.random() - 0.5);
+                        // Aseguramos que siempre tengamos 3 opciones (correcta + 2 distractores)
+                        const options = [correctTarget.m, distractors.m, distractors.m]
+                            .sort(() => Math.random() - 0.5);
+                        
                         setChallenge({ type, word: correctTarget.w, correct: correctTarget.m, options });
                         
-                        if (type === 'match') setMsg(`Busca la imagen de: ${correctTarget.w}`);
-                        if (type === 'listen') {
-                            setMsg("Toca la bocina y busca");
-                            // Fallback: A veces el navegador autocompleta esto si ya se activó el audio.
-                            setTimeout(() => speak(correctTarget.w), 500); 
+                        if (type === 'match') {
+                            setMsg("Lee la palabra y elige la imagen");
+                            speak("Busca la imagen correcta"); // No decimos la palabra
+                        } else {
+                            setMsg("Toca la bocina y elige la imagen");
+                            // En listen sí permitimos que suene la palabra solo al tocar la bocina en el UI
                         }
                     } else if (type === 'missing') {
-                        const wordStr = correctTarget.w;
-                        const blankIdx = Math.floor(Math.random() * wordStr.length);
-                        const correctLetter = wordStr[blankIdx];
+                        const word = correctTarget.w;
+                        const idx = Math.floor(Math.random() * word.length);
+                        const correctL = word[idx];
+                        const alphabet = "ABCDEILMNOPRSTU".split('');
+                        const options = [correctL, ...alphabet.filter(l => l !== correctL).sort(()=>0.5-Math.random()).slice(0,2)].sort(()=>0.5-Math.random());
                         
-                        const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
-                        const falseLetters = alphabet.filter(l => l !== correctLetter).sort(() => Math.random() - 0.5).slice(0, 2);
-                        const options = [correctLetter, ...falseLetters].sort(() => Math.random() - 0.5);
-                        
-                        setChallenge({ type, word: wordStr, blankIdx, correctLetter, options });
-                        setMsg("¿Qué letra falta?");
-                    } else if (type === 'spell') {
+                        setChallenge({ type, word, blankIdx: idx, correctL, options });
+                        setMsg("¿Qué letra falta en el hueco?");
+                        speak("Busca la letra que falta");
+                    } else {
                         const letters = correctTarget.w.split('').sort(() => Math.random() - 0.5);
-                        setChallenge({ type, word: correctTarget.w, letters, selectedLetters: [] });
-                        setMsg(`Escribe: ${correctTarget.w}`);
+                        setChallenge({ type, word: correctTarget.w, letters, selected: [] });
+                        setMsg("Ordena las letras para formar la palabra");
+                        speak("¡Ordena las letras!");
                     }
                 }
-            }, [turn, enemies]);
+            }, [turn, wave]);
 
-            // Sistema de daño universal
-            const executeAttack = (isSuccess) => {
-                if (isSuccess) {
-                    setTurn('ANIMATING');
-                    speak("¡Súper bien!");
+            const handleAttack = (success) => {
+                if (success) {
+                    setTurn('ANIM');
                     setMsg("¡ATAQUE GENIAL!");
+                    speak("¡Increíble!");
                     setPlayerAnim('animate-attack');
-                    
                     setTimeout(() => {
                         const dmg = Math.floor(stats.atk * (0.9 + Math.random() * 0.2));
                         setDmgFlow({ side: 'enemy', val: dmg });
                         setEnemyAnim('animate-shake');
-                        
                         setEnemies(prev => {
-                            const newHp = Math.max(0, prev.hp - dmg);
-                            if (newHp === 0) {
+                            const nhp = Math.max(0, prev.hp - dmg);
+                            if (nhp === 0) {
                                 if (wave < level.totalWaves) {
-                                    setMsg("¡Vencidos! Viene el siguiente...");
-                                    setTimeout(() => {
-                                        setWave(w => w + 1);
-                                        setPlayerAnim('animate-float');
-                                        setEnemyAnim('animate-float');
-                                    }, 2000);
+                                    setTimeout(() => setWave(w => w + 1), 1500);
                                 } else {
                                     setTurn('END');
-                                    setMsg("¡NIVEL COMPLETADO!");
-                                    speak("¡Felicidades! Eres un campeón.");
-                                    setTimeout(onWin, 3000);
+                                    speak("¡Has ganado!");
+                                    setTimeout(onWin, 2500);
                                 }
                             } else {
                                 setTimeout(enemyTurn, 1000);
                             }
-                            return { ...prev, hp: newHp };
+                            return {...prev, hp: nhp};
                         });
-                        
-                        setTimeout(() => {
-                            setPlayerAnim('animate-float');
-                            setEnemyAnim('animate-float');
-                        }, 500);
-
                     }, 500);
-
                 } else {
-                    setMsg("¡Casi! ¡Sigue intentando!");
-                    speak("Uy, cuidado.");
-                    setPlayerAnim('animate-shake');
-                    setTimeout(() => setPlayerAnim('animate-float'), 500);
-                    setTurn('ANIMATING');
+                    setMsg("¡Casi! Inténtalo de nuevo");
+                    speak("¡Cuidado!");
+                    setTurn('ANIM');
                     setTimeout(enemyTurn, 1000);
-                }
-            };
-
-            // Evento para el desafío de Letras (Spell)
-            const handleSpellClick = (letter, idx) => {
-                if (turn !== 'PLAYER') return;
-                const expectedLetter = challenge.word[challenge.selectedLetters.length];
-                
-                if (letter === expectedLetter) {
-                    speak(letter);
-                    const newSelected = [...challenge.selectedLetters, { l: letter, idx }];
-                    
-                    if (newSelected.length === challenge.word.length) {
-                        setChallenge({ ...challenge, selectedLetters: newSelected });
-                        setTimeout(() => executeAttack(true), 500);
-                    } else {
-                        setChallenge({ ...challenge, selectedLetters: newSelected });
-                    }
-                } else {
-                    executeAttack(false); // Daño por equivocar letra
                 }
             };
 
             const enemyTurn = () => {
                 setTurn('ENEMY');
-                setMsg(`¡El ${enemies.name} ataca!`);
                 setEnemyAnim('animate-attack');
-                
                 setTimeout(() => {
                     const dmg = Math.max(5, Math.floor(enemies.atk - stats.def));
                     setDmgFlow({ side: 'player', val: dmg });
                     setPlayerAnim('animate-shake');
-                    speak("Ay");
-                    
                     setPhp(prev => {
-                        let currentHp = Math.max(0, prev - dmg);
-                        
-                        if (currentHp > 0 && stats.heal > 0) {
-                            setTimeout(() => {
-                                setMsg("¡Tu mascota te cura!");
-                                setDmgFlow({ side: 'heal', val: stats.heal });
-                                setPhp(p => Math.min(playerMaxHp, p + stats.heal));
-                            }, 800);
-                        }
-
-                        if (currentHp === 0) {
+                        const nhp = Math.max(0, prev - dmg);
+                        if (nhp === 0) {
                             setTurn('END');
-                            setMsg("¡Oh no! Necesitamos entrenar más.");
-                            speak("Inténtalo de nuevo, tú puedes.");
-                            setTimeout(onLose, 3000);
+                            speak("Oh no, vuelve a intentarlo.");
+                            setTimeout(onLose, 2500);
                         } else {
-                            setTimeout(() => setTurn('PLAYER'), stats.heal > 0 ? 1800 : 1000);
+                            if (stats.heal > 0) {
+                                setTimeout(() => {
+                                    setDmgFlow({ side: 'heal', val: stats.heal });
+                                    setPhp(p => Math.min(playerMaxHp, p + stats.heal));
+                                }, 800);
+                            }
+                            setTimeout(() => setTurn('PLAYER'), 1500);
                         }
-                        return currentHp;
+                        return nhp;
                     });
-                    
-                    setTimeout(() => {
-                        setEnemyAnim('animate-float');
-                        setPlayerAnim('animate-float');
-                    }, 500);
                 }, 500);
             };
 
-            if (!enemies.emojis) return <div className="bg-black w-full h-full"></div>;
+            if (!enemies) return null;
 
             return (
                 <div className="w-full h-full flex flex-col relative overflow-hidden">
-                    <div className="absolute inset-0 z-0">
-                        <img src={level.biome.img} className="w-full h-full object-cover" alt="bg" />
-                        <div className="absolute inset-0 bg-overlay"></div>
-                    </div>
+                    <img src={level.biome.img} className="absolute inset-0 w-full h-full object-cover z-0" />
+                    <div className="absolute inset-0 bg-overlay z-10"></div>
 
-                    <div className="flex-1 relative z-10 flex flex-col items-center justify-between p-4 sm:p-8">
-                        <div className="w-full flex justify-between items-center bg-black/60 p-3 rounded-3xl border-2 border-white/20">
-                            <div className="title-font text-white text-lg bg-blue-600 px-4 py-1 rounded-full">
-                                {level.name}
-                            </div>
-                            <div className="title-font text-yellow-400 text-xl bg-red-600 px-4 py-1 rounded-full border-2 border-red-800">
-                                OLA {wave}/{level.totalWaves}
-                            </div>
+                    <div className="relative z-20 flex-1 p-6 flex flex-col justify-between items-center">
+                        <div className="w-full flex justify-between items-center bg-black/50 p-4 rounded-3xl border-2 border-white/20 backdrop-blur-sm">
+                            <span className="title-font text-white">{level.name}</span>
+                            <span className="title-font text-yellow-400 bg-red-600 px-4 rounded-full">OLA {wave}/{level.totalWaves}</span>
                         </div>
 
-                        <div className="w-full flex justify-between items-end mb-8 px-4">
-                            <div className={`flex flex-col items-center relative ${playerAnim} z-20`}>
-                                {(dmgFlow?.side === 'player' || dmgFlow?.side === 'heal') && (
-                                    <div className={`floating-damage ${dmgFlow.side==='heal'?'text-green-400':'text-red-500'}`}>
-                                        {dmgFlow.side==='heal'?'+':'-'}{dmgFlow.val}
-                                    </div>
-                                )}
-                                <div className="text-8xl sm:text-9xl drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] relative">
-                                    {playerAvatar}
-                                </div>
-                                <div className="w-28 h-6 bg-slate-900 rounded-full border-4 border-white overflow-hidden mt-3 shadow-lg relative">
-                                    <div className="h-full bg-green-500 transition-all duration-300" style={{width: `${(php/playerMaxHp)*100}%`}}></div>
-                                    <span className="absolute inset-0 flex items-center justify-center text-white text-[10px] font-black">{php} HP</span>
+                        <div className="w-full flex justify-between items-end">
+                            <div className={`flex flex-col items-center ${playerAnim}`}>
+                                {dmgFlow?.side==='player'&&<div className="floating-damage text-red-500">-{dmgFlow.val}</div>}
+                                {dmgFlow?.side==='heal'&&<div className="floating-damage text-green-400">+{dmgFlow.val}</div>}
+                                <span className="text-8xl sm:text-9xl drop-shadow-2xl">{playerAvatar}</span>
+                                <div className="w-32 h-6 bg-slate-900 rounded-full border-4 border-white mt-4 relative overflow-hidden">
+                                    <div className="h-full bg-green-500 transition-all" style={{width:`${(php/playerMaxHp)*100}%`}}></div>
                                 </div>
                             </div>
 
-                            <div className={`flex flex-col items-center relative ${enemyAnim} z-10`}>
-                                {dmgFlow?.side === 'enemy' && <div className="floating-damage text-white">-{dmgFlow.val}</div>}
-                                
-                                <div className="flex justify-center flex-wrap-reverse gap-[-10px] w-40 drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)]">
+                            <div className={`flex flex-col items-center ${enemyAnim}`}>
+                                {dmgFlow?.side==='enemy'&&<div className="floating-damage text-white">-{dmgFlow.val}</div>}
+                                <div className="flex flex-wrap-reverse justify-center gap-1">
                                     {enemies.emojis.map((em, i) => (
-                                        <span key={i} className={`inline-block transition-transform text-8xl sm:text-9xl ${wave===level.totalWaves?'scale-[1.5] sm:scale-[1.7] mb-6':''}`}>{em}</span>
+                                        <span key={i} className={`text-8xl sm:text-9xl drop-shadow-2xl ${enemies.isBoss ? 'scale-150' : ''}`}>{em}</span>
                                     ))}
                                 </div>
-                                
-                                <div className="w-28 h-6 bg-slate-900 rounded-full border-4 border-white overflow-hidden mt-3 shadow-lg">
-                                    <div className="h-full bg-red-500 transition-all duration-300" style={{width: `${(enemies.hp/enemies.maxHp)*100}%`}}></div>
+                                <div className="w-32 h-6 bg-slate-900 rounded-full border-4 border-white mt-4 relative overflow-hidden">
+                                    <div className="h-full bg-red-500 transition-all" style={{width:`${(enemies.hp/enemies.maxHp)*100}%`}}></div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-white/95 p-4 rounded-3xl border-4 border-slate-800 title-font text-2xl text-center w-full shadow-[0_10px_20px_rgba(0,0,0,0.5)]">
+                        <div className="bg-white p-4 rounded-3xl border-4 border-slate-800 title-font text-xl text-center w-full shadow-2xl text-slate-800">
                             {msg}
                         </div>
                     </div>
 
-                    {/* Panel de Desafíos (4 Mecánicas Dinámicas) */}
-                    <div className="h-[45%] bg-slate-900/95 backdrop-blur-xl z-20 border-t-8 border-slate-700 p-4 sm:p-6 flex flex-col items-center justify-center shadow-[0_-20px_30px_rgba(0,0,0,0.5)] rounded-t-[40px]">
-                        
+                    <div className="h-[42%] bg-slate-900/95 border-t-8 border-slate-800 p-6 flex flex-col items-center justify-center z-30 rounded-t-[40px]">
                         {turn === 'PLAYER' && challenge ? (
-                            <div className="w-full flex flex-col items-center animate-[fade-in_0.3s_ease-out]">
-                                
-                                {/* 1. Mecánica MATCH */}
+                            <div className="w-full flex flex-col items-center">
                                 {challenge.type === 'match' && (
                                     <>
-                                        <div className="text-center mb-6 bg-black/40 px-8 py-3 rounded-full border-2 border-slate-600">
-                                            <span className="text-blue-400 font-black tracking-widest text-sm block uppercase">ENCUENTRA:</span>
-                                            <h2 className="text-white title-font text-5xl sm:text-6xl tracking-[8px] uppercase">{challenge.word}</h2>
-                                        </div>
-                                        <div className="flex justify-center gap-4 sm:gap-8 w-full">
+                                        <h2 className="text-white title-font text-5xl mb-8 tracking-widest uppercase">{challenge.word}</h2>
+                                        <div className="flex gap-6">
                                             {challenge.options.map((opt, i) => (
-                                                <button key={i} onClick={() => executeAttack(opt === challenge.correct)} className="text-6xl sm:text-8xl bg-slate-800 p-4 sm:p-6 rounded-[2rem] border-b-8 border-slate-950 active:translate-y-2 active:border-b-0 transition-all shadow-2xl hover:bg-slate-700">
+                                                <button key={i} onClick={() => handleAttack(opt === challenge.correct)} 
+                                                    className="text-7xl bg-slate-800 p-6 rounded-3xl border-b-8 border-black active:translate-y-2 active:border-b-0 transition-all">
                                                     {opt}
                                                 </button>
                                             ))}
                                         </div>
                                     </>
                                 )}
-
-                                {/* 2. Mecánica LISTEN */}
                                 {challenge.type === 'listen' && (
                                     <>
-                                        <div className="text-center mb-6 flex items-center gap-4 bg-black/40 px-6 py-3 rounded-full border-2 border-slate-600">
-                                            <button onClick={() => speak(challenge.word)} className="text-5xl bg-blue-500 p-4 rounded-full shadow-lg active:scale-90 transition-transform animate-bounce">🔊</button>
-                                            <h2 className="text-white title-font text-3xl uppercase tracking-widest text-blue-300">Escucha e Identifica</h2>
-                                        </div>
-                                        <div className="flex justify-center gap-4 sm:gap-8 w-full">
+                                        <button onClick={() => speak(challenge.word)} className="text-6xl bg-blue-600 p-6 rounded-full mb-6 animate-pulse">🔊</button>
+                                        <div className="flex gap-6">
                                             {challenge.options.map((opt, i) => (
-                                                <button key={i} onClick={() => executeAttack(opt === challenge.correct)} className="text-6xl sm:text-8xl bg-slate-800 p-4 sm:p-6 rounded-[2rem] border-b-8 border-slate-950 active:translate-y-2 active:border-b-0 transition-all shadow-2xl hover:bg-slate-700">
+                                                <button key={i} onClick={() => handleAttack(opt === challenge.correct)} 
+                                                    className="text-7xl bg-slate-800 p-6 rounded-3xl border-b-8 border-black active:translate-y-2 active:border-b-0">
                                                     {opt}
                                                 </button>
                                             ))}
                                         </div>
                                     </>
                                 )}
-
-                                {/* 3. Mecánica MISSING */}
                                 {challenge.type === 'missing' && (
                                     <>
-                                        <div className="text-center mb-6 bg-black/40 px-8 py-3 rounded-full border-2 border-slate-600">
-                                            <span className="text-yellow-400 font-black tracking-widest text-sm block uppercase">LETRA FALTANTE:</span>
-                                            <h2 className="text-white title-font text-5xl sm:text-6xl tracking-[10px] uppercase">
-                                                {challenge.word.split('').map((l, i) => i === challenge.blankIdx ? '_' : l).join('')}
-                                            </h2>
-                                        </div>
-                                        <div className="flex justify-center gap-4 sm:gap-8 w-full">
+                                        <h2 className="text-white title-font text-5xl mb-8 tracking-widest uppercase">
+                                            {challenge.word.split('').map((l, i) => i === challenge.blankIdx ? '_' : l).join('')}
+                                        </h2>
+                                        <div className="flex gap-6">
                                             {challenge.options.map((opt, i) => (
-                                                <button key={i} onClick={() => executeAttack(opt === challenge.correctLetter)} className="text-5xl sm:text-7xl title-font font-black bg-purple-600 text-white w-20 h-20 sm:w-28 sm:h-28 rounded-2xl border-b-8 border-purple-900 active:translate-y-2 active:border-b-0 transition-all shadow-2xl hover:bg-purple-500 flex items-center justify-center">
+                                                <button key={i} onClick={() => handleAttack(opt === challenge.correctL)} 
+                                                    className="text-6xl title-font bg-purple-600 text-white w-20 h-20 rounded-2xl border-b-8 border-purple-900">
                                                     {opt}
                                                 </button>
                                             ))}
                                         </div>
                                     </>
                                 )}
-
-                                {/* 4. Mecánica SPELL */}
                                 {challenge.type === 'spell' && (
-                                    <>
-                                        <div className="text-center mb-6 bg-black/40 px-8 py-3 rounded-full border-2 border-slate-600">
-                                            <span className="text-green-400 font-black tracking-widest text-sm block uppercase">ORDENA LA PALABRA:</span>
-                                            <div className="flex gap-2 justify-center mt-2">
-                                                {challenge.word.split('').map((l, i) => {
-                                                    const isSelected = challenge.selectedLetters[i];
-                                                    return (
-                                                        <div key={i} className="w-10 h-12 sm:w-14 sm:h-16 border-b-4 border-white flex items-center justify-center text-4xl title-font text-yellow-400">
-                                                            {isSelected ? isSelected.l : ''}
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
+                                    <div className="w-full flex flex-col items-center">
+                                        <div className="flex gap-3 mb-6">
+                                            {challenge.word.split('').map((_, i) => (
+                                                <div key={i} className="w-12 h-14 border-b-4 border-yellow-400 text-4xl title-font text-white flex justify-center items-center">
+                                                    {challenge.selected[i]?.l || ''}
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div className="flex justify-center flex-wrap gap-3 sm:gap-4 w-full px-4">
+                                        <div className="flex flex-wrap justify-center gap-3">
                                             {challenge.letters.map((l, i) => {
-                                                const isUsed = challenge.selectedLetters.some(s => s.idx === i);
+                                                const used = challenge.selected.some(s => s.idx === i);
                                                 return (
-                                                    <button key={i} onClick={() => !isUsed && handleSpellClick(l, i)}
-                                                        className={`w-14 h-14 sm:w-20 sm:h-20 rounded-xl text-3xl sm:text-5xl title-font font-bold transition-all shadow-lg flex items-center justify-center
-                                                        ${isUsed ? 'bg-slate-800 text-slate-700 opacity-50 scale-90 cursor-default' : 'bg-blue-500 border-b-4 border-blue-700 text-white active:border-b-0 active:translate-y-1 hover:bg-blue-400'}`}>
+                                                    <button key={i} disabled={used} onClick={() => {
+                                                        const next = challenge.word[challenge.selected.length];
+                                                        if (l === next) {
+                                                            const nSelected = [...challenge.selected, {l, idx: i}];
+                                                            setChallenge({...challenge, selected: nSelected});
+                                                            if (nSelected.length === challenge.word.length) setTimeout(() => handleAttack(true), 500);
+                                                        } else {
+                                                            handleAttack(false);
+                                                        }
+                                                    }} className={`w-14 h-14 rounded-xl text-3xl title-font transition-all ${used ? 'bg-slate-800 text-slate-700' : 'bg-blue-500 text-white shadow-lg'}`}>
                                                         {l}
                                                     </button>
                                                 )
                                             })}
                                         </div>
-                                    </>
+                                    </div>
                                 )}
-
-                            </div>
-                        ) : turn === 'END' ? (
-                            <div className="flex flex-col items-center gap-4 animate-bounce">
-                                <span className="text-7xl">🌟</span>
-                                <span className="title-font text-white text-3xl text-center">¡Cargando el mapa!</span>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center gap-6 opacity-70">
-                                <div className="w-16 h-16 border-8 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                                <span className="title-font text-red-400 text-2xl text-center">¡CUIDADO! EL ENEMIGO ATACA</span>
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                                <span className="title-font text-white text-xl uppercase tracking-widest">Esperando...</span>
                             </div>
                         )}
                     </div>
