@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Súper RPG de Lectura - Edición Definitiva</title>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+    
+    <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,59 +19,41 @@
     <style>
         :root { --app-height: 100%; }
         html, body { 
-            height: 100%; 
-            margin: 0; 
-            padding: 0; 
-            overflow: hidden; 
-            background-color: #0f172a;
-            font-family: 'Nunito', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
+            height: 100%; margin: 0; padding: 0; overflow: hidden; 
+            background-color: #020617; font-family: 'Nunito', sans-serif;
+            -webkit-tap-highlight-color: transparent; user-select: none;
+            touch-action: manipulation;
         }
         #root { height: 100%; width: 100%; }
-        
         .title-font { font-family: 'Fredoka One', cursive; }
 
-        /* Mapa con gradiente masivo mejorado */
-        .map-bg-massive {
-            background: linear-gradient(to bottom, 
-                #1e1b4b 0%, #4c1d95 15%, #0284c7 30%, #0891b2 45%, 
-                #047857 60%, #16a34a 75%, #f59e0b 90%, #9a3412 100%
-            );
-            background-size: 100% 5000px;
-        }
+        /* Custom Scrollbar for Map and Shop */
+        .custom-scroll { overflow-y: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #fbbf24; border-radius: 10px; }
 
-        /* Animaciones del original */
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        /* Animations */
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
         .animate-float { animation: float 3s ease-in-out infinite; }
         
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
-        .animate-shake { animation: shake 0.3s; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-12px) rotate(-5deg); } 75% { transform: translateX(12px) rotate(5deg); } }
+        .animate-shake { animation: shake 0.4s; }
 
-        @keyframes damageText { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-50px) scale(1.5); } }
+        @keyframes attack { 0% { transform: scale(1) translateY(0); } 50% { transform: scale(1.3) translateY(-30px); } 100% { transform: scale(1) translateY(0); } }
+        .animate-attack { animation: attack 0.5s ease-out; }
+
+        @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 15px #fbbf24, inset 0 0 10px #fbbf24; } 50% { box-shadow: 0 0 30px #f59e0b, inset 0 0 20px #f59e0b; } }
+        .current-level { animation: pulse-glow 2s infinite; }
+
+        .bg-overlay { background: linear-gradient(to bottom, rgba(15, 23, 42, 0.4), rgba(2, 6, 23, 0.9)); }
+
         .floating-damage {
-            position: absolute;
-            font-weight: 900;
-            font-size: 2.5rem;
-            color: #ef4444;
-            text-shadow: 2px 2px 0 #000;
-            animation: damageText 0.8s forwards;
-            pointer-events: none;
-            z-index: 100;
+            position: absolute; font-weight: 900; font-size: 3.5rem;
+            text-shadow: 4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+            animation: damageText 1s forwards; pointer-events: none; z-index: 100;
         }
-
-        /* Scroll suave para móviles */
-        .custom-scroll {
-            overflow-y: auto;
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-        }
-        .custom-scroll::-webkit-scrollbar { display: none; }
-
-        /* Efecto de brillo para items desbloqueados */
-        .level-glow {
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
-        }
+        @keyframes damageText { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-80px) scale(1.5); } }
     </style>
 </head>
 <body>
@@ -80,122 +67,212 @@
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 const msg = new SpeechSynthesisUtterance(text);
-                msg.lang = 'es-ES';
-                msg.rate = 0.95;
-                msg.pitch = 1.1;
+                msg.lang = 'es-ES'; msg.rate = 0.9; msg.pitch = 1.1;
                 window.speechSynthesis.speak(msg);
             }
         };
 
-        // --- CONSTANTES ---
-        const DICTIONARY = [
-            {w: "SOL", m: "☀️"}, {w: "PAN", m: "🍞"}, {w: "REY", m: "👑"}, {w: "PEZ", m: "🐟"},
-            {w: "MAR", m: "🌊"}, {w: "GATO", m: "🐱"}, {w: "PATO", m: "🦆"}, {w: "OSO", m: "🐻"},
-            {w: "VACA", m: "🐮"}, {w: "LUNA", m: "🌙"}, {w: "CASA", m: "🏠"}, {w: "PERRO", m: "🐶"},
-            {w: "MESA", m: "🪑"}, {w: "BOCA", m: "👄"}, {w: "MANO", m: "✋"}, {w: "PIE", m: "🦶"}
+        // --- BASE DE DATOS DE BIOMAS Y DICCIONARIOS CONTEXTUALES ---
+        // 10 Biomas * 5 Niveles = 50 Niveles
+        const BIOMES = [
+            {
+                id: 0, name: "Pradera Feliz", 
+                img: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80",
+                enemies: ["🐛", "🐌", "🐝", "🐜"], boss: "🐢",
+                words: [
+                    {w: "SOL", m: "☀️"}, {w: "FLOR", m: "🌸"}, {w: "HOJA", m: "🍃"}, {w: "RANA", m: "🐸"},
+                    {w: "PATO", m: "🦆"}, {w: "AGUA", m: "💧"}, {w: "NUBE", m: "☁️"}, {w: "CIELO", m: "🌤️"},
+                    {w: "ARBOL", m: "🌳"}, {w: "PASTO", m: "🌱"}
+                ]
+            },
+            {
+                id: 1, name: "Bosque Oscuro", 
+                img: "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80",
+                enemies: ["🕷️", "🦇", "🐗", "🦉"], boss: "🐺",
+                words: [
+                    {w: "PINO", m: "🌲"}, {w: "OSO", m: "🐻"}, {w: "LUNA", m: "🌙"}, {w: "HONGO", m: "🍄"},
+                    {w: "RAMA", m: "🪵"}, {w: "LOBO", m: "🐺"}, {w: "NOCHE", m: "🌃"}, {w: "BHO", m: "🦉"},
+                    {w: "ROCA", m: "🪨"}, {w: "CUEVA", m: "🕳️"}
+                ]
+            },
+            {
+                id: 2, name: "Playa Soleada", 
+                img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
+                enemies: ["🦀", "🐠", "🐡", "🦐"], boss: "🐙",
+                words: [
+                    {w: "MAR", m: "🌊"}, {w: "PEZ", m: "🐟"}, {w: "BARCO", m: "⛵"}, {w: "ISLA", m: "🏝️"},
+                    {w: "COCO", m: "🥥"}, {w: "ARENA", m: "🏖️"}, {w: "CONCHA", m: "🐚"}, {w: "PALMA", m: "🌴"},
+                    {w: "PULPO", m: "🐙"}, {w: "SOL", m: "☀️"}
+                ]
+            },
+            {
+                id: 3, name: "Montaña Helada", 
+                img: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80",
+                enemies: ["⛄", "🐧", "🧊", "🐐"], boss: "🐻‍❄️",
+                words: [
+                    {w: "NIEVE", m: "❄️"}, {w: "HIELO", m: "🧊"}, {w: "FRIO", m: "🥶"}, {w: "GORRO", m: "🧶"},
+                    {w: "TRINEO", m: "🛷"}, {w: "BLANCO", m: "⛄"}, {w: "PINO", m: "🌲"}, {w: "MONTE", m: "🏔️"},
+                    {w: "FOCA", m: "🦭"}, {w: "OSO", m: "🐻‍❄️"}
+                ]
+            },
+            {
+                id: 4, name: "Desierto Seco", 
+                img: "https://images.unsplash.com/photo-1473580044384-7ba9967e16a0?auto=format&fit=crop&w=800&q=80",
+                enemies: ["🦂", "🐍", "🌵", "🦎"], boss: "🐪",
+                words: [
+                    {w: "SECO", m: "🏜️"}, {w: "CALOR", m: "🥵"}, {w: "ARENA", m: "🐪"}, {w: "OASIS", m: "🏝️"},
+                    {w: "SOL", m: "☀️"}, {w: "HUESO", m: "🦴"}, {w: "ORO", m: "🪙"}, {w: "MAPA", m: "🗺️"},
+                    {w: "COFRE", m: "🧰"}, {w: "JOYA", m: "💎"}
+                ]
+            },
+            {
+                id: 5, name: "Volcán Ardiente", 
+                img: "https://images.unsplash.com/photo-1467348733814-3919a263f77d?auto=format&fit=crop&w=800&q=80",
+                enemies: ["🔥", "👺", "☄️", "🌋"], boss: "🐉",
+                words: [
+                    {w: "FUEGO", m: "🔥"}, {w: "LAVA", m: "🌋"}, {w: "HUMO", m: "💨"}, {w: "ROJO", m: "🔴"},
+                    {w: "PIEDRA", m: "🪨"}, {w: "CENIZA", m: "🌫️"}, {w: "DRAGON", m: "🐉"}, {w: "MAGMA", m: "🔥"},
+                    {w: "QUEMA", m: "🔥"}, {w: "CALOR", m: "🥵"}
+                ]
+            },
+            {
+                id: 6, name: "Ciudad Mágica", 
+                img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
+                enemies: ["🪄", "🔮", "🎩", "🧹"], boss: "🧙‍♀️",
+                words: [
+                    {w: "MAGIA", m: "✨"}, {w: "LIBRO", m: "📖"}, {w: "POCION", m: "🧪"}, {w: "VARITA", m: "🪄"},
+                    {w: "ESTRELLA", m: "⭐"}, {w: "GATO", m: "🐈‍⬛"}, {w: "ESCOBA", m: "🧹"}, {w: "CAPA", m: "🧛"},
+                    {w: "BOLA", m: "🔮"}, {w: "LLAVE", m: "🗝️"}
+                ]
+            },
+            {
+                id: 7, name: "Castillo Real", 
+                img: "https://images.unsplash.com/photo-1533154683836-84ea7a0bc310?auto=format&fit=crop&w=800&q=80",
+                enemies: ["🤺", "🛡️", "🏹", "🐎"], boss: "👑",
+                words: [
+                    {w: "REY", m: "👑"}, {w: "REINA", m: "👸"}, {w: "CORONA", m: "👑"}, {w: "ESPADA", m: "🗡️"},
+                    {w: "ESCUDO", m: "🛡️"}, {w: "CASTILLO", m: "🏰"}, {w: "CABALLO", m: "🐎"}, {w: "PUERTA", m: "🚪"},
+                    {w: "TORRE", m: "🗼"}, {w: "TRONO", m: "🪑"}
+                ]
+            },
+            {
+                id: 8, name: "Cielo Infinito", 
+                img: "https://images.unsplash.com/photo-1495430288918-03be19c7c485?auto=format&fit=crop&w=800&q=80",
+                enemies: ["☁️", "🦅", "🪁", "🎈"], boss: "🌪️",
+                words: [
+                    {w: "VIENTO", m: "💨"}, {w: "AVE", m: "🐦"}, {w: "ALAS", m: "🪽"}, {w: "GLOBO", m: "🎈"},
+                    {w: "COMETA", m: "🪁"}, {w: "RAYO", m: "⚡"}, {w: "NUBE", m: "☁️"}, {w: "LLUVIA", m: "🌧️"},
+                    {w: "CIELO", m: "🌌"}, {w: "SOL", m: "☀️"}
+                ]
+            },
+            {
+                id: 9, name: "El Espacio", 
+                img: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+                enemies: ["👽", "🛸", "🛰️", "🤖"], boss: "👾",
+                words: [
+                    {w: "PLANETA", m: "🪐"}, {w: "NAVE", m: "🚀"}, {w: "LUNA", m: "🌖"}, {w: "ESTRELLA", m: "⭐"},
+                    {w: "SOL", m: "🌞"}, {w: "ALIEN", m: "👽"}, {w: "ROBOT", m: "🤖"}, {w: "COHETE", m: "🚀"},
+                    {w: "TIERRA", m: "🌍"}, {w: "ASTRO", m: "👨‍🚀"}
+                ]
+            }
         ];
 
-        const THEMES = [
-            { name: "Pradera", bg: "bg-green-500", accent: "border-green-700", enemies: ["🐛", "🐌", "🐝"], boss: "👑", msgs: ["¡Te voy a picar!", "¡Soy muy lento!", "¡Cuidado con mi corona!"] },
-            { name: "Bosque", bg: "bg-emerald-800", accent: "border-emerald-950", enemies: ["🕷️", "🦇", "🍄"], boss: "🐺", msgs: ["¡Auuu!", "¡No pises el hongo!", "¡Tengo mucha hambre!"] },
-            { name: "Playa", bg: "bg-yellow-400", accent: "border-yellow-600", enemies: ["🦀", "🐡", "🦑"], boss: "🐙", msgs: ["¡Pinza va!", "¡Glup glup!", "¡Muchos tentáculos!"] },
-            { name: "Nieve", bg: "bg-blue-200", accent: "border-blue-400", enemies: ["⛄", "🐧", "🧊"], boss: "🐻‍❄️", msgs: ["¡Qué frío!", "¡Deslízate!", "¡Rugido helado!"] },
-            { name: "Castillo", bg: "bg-purple-700", accent: "border-purple-900", enemies: ["🛡️", "🤺", "👻"], boss: "🧙‍♂️", msgs: ["¡Mala suerte!", "¡Fuera de mi torre!", "¡Magia poderosa!"] }
-        ];
-
+        // --- TIENDA MASIVA ---
         const SHOP_ITEMS = [
-            { id: 'w1', type: 'weapon', name: "Espada Madera", emoji: "🪵", stat: 10, cost: 10 },
-            { id: 'w2', type: 'weapon', name: "Espada Hierro", emoji: "🗡️", stat: 25, cost: 30 },
-            { id: 'w3', type: 'weapon', name: "Espada Mágica", emoji: "✨", stat: 50, cost: 60 },
-            { id: 'a1', type: 'armor', name: "Escudo Madera", emoji: "🛡️", stat: 10, cost: 15 },
-            { id: 'a2', type: 'armor', name: "Capa Veloz", emoji: "🧣", stat: 20, cost: 40 },
-            { id: 'c1', type: 'companion', name: "Perrito", emoji: "🐕", stat: 15, cost: 25 },
-            { id: 'c2', type: 'companion', name: "Dragón", emoji: "🐉", stat: 40, cost: 80 }
+            // ARMAS (Aumentan Daño)
+            { id: 'w1', type: 'weapon', name: "Palo de Madera", emoji: "🪵", stat: 15, cost: 30, desc: "+15 Daño" },
+            { id: 'w2', type: 'weapon', name: "Espada de Juguete", emoji: "🗡️", stat: 30, cost: 80, desc: "+30 Daño" },
+            { id: 'w3', type: 'weapon', name: "Hacha de Piedra", emoji: "🪓", stat: 60, cost: 200, desc: "+60 Daño" },
+            { id: 'w4', type: 'weapon', name: "Lanza Larga", emoji: "🦯", stat: 100, cost: 450, desc: "+100 Daño" },
+            { id: 'w5', type: 'weapon', name: "Martillo Gigante", emoji: "🔨", stat: 150, cost: 900, desc: "+150 Daño" },
+            { id: 'w6', type: 'weapon', name: "Espada de Fuego", emoji: "🔥🗡️", stat: 250, cost: 1800, desc: "+250 Daño" },
+            { id: 'w7', type: 'weapon', name: "Varita Mágica", emoji: "🪄", stat: 400, cost: 3500, desc: "+400 Daño" },
+            { id: 'w8', type: 'weapon', name: "Sable Láser", emoji: "🎇", stat: 700, cost: 6000, desc: "+700 Daño" },
+            { id: 'w9', type: 'weapon', name: "Espada Galáctica", emoji: "🌌🗡️", stat: 1200, cost: 12000, desc: "+1200 Daño" },
+
+            // ARMADURAS (Reducen Daño Recibido)
+            { id: 'a1', type: 'armor', name: "Camiseta Fuerte", emoji: "👕", stat: 5, cost: 30, desc: "+5 Defensa" },
+            { id: 'a2', type: 'armor', name: "Casco de Bici", emoji: "🪖", stat: 15, cost: 100, desc: "+15 Defensa" },
+            { id: 'a3', type: 'armor', name: "Escudo de Madera", emoji: "🛡️", stat: 30, cost: 250, desc: "+30 Defensa" },
+            { id: 'a4', type: 'armor', name: "Pechera de Cuero", emoji: "🦺", stat: 60, cost: 600, desc: "+60 Defensa" },
+            { id: 'a5', type: 'armor', name: "Armadura Caballero", emoji: "🤺", stat: 120, cost: 1500, desc: "+120 Defensa" },
+            { id: 'a6', type: 'armor', name: "Escudo Mágico", emoji: "🔮🛡️", stat: 250, cost: 3000, desc: "+250 Defensa" },
+            { id: 'a7', type: 'armor', name: "Traje de Robot", emoji: "🤖", stat: 500, cost: 7000, desc: "+500 Defensa" },
+            { id: 'a8', type: 'armor', name: "Campo de Fuerza", emoji: "🔵", stat: 1000, cost: 15000, desc: "+1000 Def" },
+
+            // MASCOTAS (Curan HP en cada turno del jugador)
+            { id: 'c1', type: 'companion', name: "Perrito Fiel", emoji: "🐶", stat: 10, cost: 150, desc: "Cura 10 HP/Turno" },
+            { id: 'c2', type: 'companion', name: "Gatito Suave", emoji: "🐱", stat: 25, cost: 400, desc: "Cura 25 HP/Turno" },
+            { id: 'c3', type: 'companion', name: "Tortuga Sabia", emoji: "🐢", stat: 60, cost: 1000, desc: "Cura 60 HP/Turno" },
+            { id: 'c4', type: 'companion', name: "Búho Mágico", emoji: "🦉", stat: 120, cost: 2500, desc: "Cura 120 HP/Turno" },
+            { id: 'c5', type: 'companion', name: "Hada Brillante", emoji: "🧚", stat: 250, cost: 5000, desc: "Cura 250 HP/Turno" },
+            { id: 'c6', type: 'companion', name: "Dragón Bebé", emoji: "🐲", stat: 500, cost: 10000, desc: "Cura 500 HP/Turno" },
+            { id: 'c7', type: 'companion', name: "Ave Fénix", emoji: "🦅🔥", stat: 1000, cost: 20000, desc: "Cura 1000 HP" }
         ];
 
+        // --- GENERADOR DE 50 NIVELES ---
         const LEVELS = Array.from({ length: 50 }, (_, i) => {
-            const levelNum = i + 1;
-            const themeIndex = Math.floor(i / 10) % THEMES.length;
-            const theme = THEMES[themeIndex];
+            const levelId = i + 1;
+            const biomeIndex = Math.floor((levelId - 1) / 5); // Cambia de bioma cada 5 niveles
+            const biome = BIOMES[biomeIndex];
+            
+            // Oleadas: 1-9 (3), 10-19 (4), 20-29 (5), etc.
+            const waves = Math.floor((levelId - 1) / 10) + 3; 
+            
+            // Recompensas escalares enormes para poder comprar cosas caras
+            const starReward = levelId * 15 + Math.floor(Math.pow(levelId, 1.5) * 5); 
+
             return {
-                id: levelNum,
-                name: `${theme.name} ${levelNum}`,
-                theme: theme,
-                waves: Math.floor(i / 10) + 2,
-                enemyHp: 30 + (i * 12),
-                enemyAtk: 8 + (i * 3)
+                id: levelId,
+                name: `${biome.name} - Nivel ${levelId}`,
+                biome: biome,
+                totalWaves: waves,
+                enemyHpBase: 25 + (levelId * 20) + Math.floor(Math.pow(levelId, 1.8)),
+                enemyAtkBase: 8 + (levelId * 5) + Math.floor(levelId * 1.5),
+                reward: starReward
             };
         });
 
         // --- COMPONENTE PRINCIPAL ---
         function App() {
-            const [screen, setScreen] = useState('TITLE');
+            const [screen, setScreen] = useState('TITLE'); // TITLE, MAP, SHOP, COMBAT
             const [stars, setStars] = useState(0);
             const [maxLevel, setMaxLevel] = useState(1);
-            const [currentLevelId, setCurrentLevelId] = useState(null);
+            const [currentLvl, setCurrentLvl] = useState(null);
+            
             const [player, setPlayer] = useState({
                 avatar: '👦',
                 inv: { weapon: null, armor: null, companion: null },
                 purchased: []
             });
 
-            useEffect(() => {
-                const setHeight = () => document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
-                window.addEventListener('resize', setHeight);
-                setHeight();
-                return () => window.removeEventListener('resize', setHeight);
-            }, []);
+            // HP Maximo crece automáticamente al subir de nivel
+            const playerMaxHp = 100 + (maxLevel * 30);
 
             const stats = useMemo(() => {
-                let atk = 20;
+                let atk = 20 + (maxLevel * 5);
                 let def = 0;
+                let heal = 0;
                 if (player.inv.weapon) atk += SHOP_ITEMS.find(i => i.id === player.inv.weapon).stat;
                 if (player.inv.armor) def += SHOP_ITEMS.find(i => i.id === player.inv.armor).stat;
-                if (player.inv.companion) atk += SHOP_ITEMS.find(i => i.id === player.inv.companion).stat;
-                return { atk, def };
-            }, [player.inv]);
+                if (player.inv.companion) heal += SHOP_ITEMS.find(i => i.id === player.inv.companion).stat;
+                return { atk, def, heal };
+            }, [player.inv, maxLevel]);
 
             return (
-                <div className="w-full h-full flex flex-col relative bg-slate-950" style={{ height: 'var(--app-height)' }}>
-                    
-                    {/* UI FIJA SUPERIOR (Mapa y Tienda) */}
-                    {(screen === 'MAP' || screen === 'SHOP') && (
-                        <div className="fixed top-0 left-0 w-full z-50 p-4 flex justify-between items-center pointer-events-none">
-                            <div className="bg-yellow-400 text-black px-5 py-2 rounded-2xl border-4 border-yellow-600 shadow-[0_4px_0_rgba(0,0,0,0.3)] pointer-events-auto flex items-center gap-2 transform active:scale-95 transition-transform">
-                                <span className="text-2xl">⭐</span>
-                                <span className="title-font text-2xl">{stars}</span>
-                            </div>
-                            
-                            {screen === 'MAP' ? (
-                                <button 
-                                    onClick={() => { speak("¡Bienvenido a la tienda!"); setScreen('SHOP'); }}
-                                    className="bg-purple-600 text-white p-3 rounded-2xl border-b-4 border-purple-800 shadow-lg pointer-events-auto flex items-center gap-2 active:translate-y-1 active:border-b-0"
-                                >
-                                    <span className="text-3xl">🛒</span>
-                                    <span className="title-font hidden sm:inline text-lg">TIENDA</span>
-                                </button>
-                            ) : (
-                                <button 
-                                    onClick={() => setScreen('MAP')}
-                                    className="bg-red-500 text-white px-6 py-2 rounded-2xl border-b-4 border-red-800 shadow-lg pointer-events-auto title-font text-xl active:translate-y-1 active:border-b-0"
-                                >
-                                    VOLVER
-                                </button>
-                            )}
-                        </div>
-                    )}
-
+                <div className="w-full h-full relative" style={{ height: 'var(--app-height)' }}>
                     {screen === 'TITLE' && <TitleScreen onStart={() => setScreen('MAP')} setPlayer={setPlayer} player={player} />}
-                    {screen === 'MAP' && <MapScreen maxLevel={maxLevel} onSelect={(id) => { setCurrentLevelId(id); setScreen('COMBAT'); }} />}
-                    {screen === 'SHOP' && <ShopScreen stars={stars} setStars={setStars} player={player} setPlayer={setPlayer} />}
+                    {screen === 'MAP' && <MapScreen maxLevel={maxLevel} onSelect={(lvl) => { setCurrentLvl(lvl); setScreen('COMBAT'); }} stars={stars} onShop={() => setScreen('SHOP')} />}
+                    {screen === 'SHOP' && <ShopScreen stars={stars} setStars={setStars} player={player} setPlayer={setPlayer} onBack={() => setScreen('MAP')} />}
                     {screen === 'COMBAT' && (
                         <CombatScreen 
-                            level={LEVELS[currentLevelId - 1]} 
-                            player={player} 
+                            level={currentLvl} 
+                            playerAvatar={player.avatar}
+                            playerMaxHp={playerMaxHp}
                             stats={stats}
                             onWin={() => {
-                                if (currentLevelId === maxLevel) setMaxLevel(prev => Math.min(50, prev + 1));
-                                setStars(s => s + 20);
+                                if (currentLvl.id === maxLevel && maxLevel < 50) setMaxLevel(m => m + 1);
+                                setStars(s => s + currentLvl.reward);
                                 setScreen('MAP');
                             }}
                             onLose={() => setScreen('MAP')}
@@ -205,66 +282,95 @@
             );
         }
 
-        // --- PANTALLAS ---
-
+        // --- PANTALLA DE INICIO ---
         function TitleScreen({ onStart, setPlayer, player }) {
-            const avatars = ['👦', '👧', '🦸‍♂️', '🦸‍♀️'];
+            const avatars = ['👦', '👧', '🦁', '🦖', '🤖', '👸'];
             return (
-                <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-blue-500 to-indigo-700 p-8 text-center">
-                    <div className="animate-float mb-8">
-                        <h1 className="title-font text-6xl text-yellow-300 drop-shadow-[0_5px_0_rgba(0,0,0,0.5)] leading-tight uppercase">Aventura<br/>Lectora</h1>
-                    </div>
-                    <div className="bg-white/10 backdrop-blur-md p-8 rounded-[40px] border-4 border-white/20 mb-12 w-full max-w-sm">
-                        <p className="mb-6 font-black text-xl text-white uppercase tracking-widest">Elige tu Héroe</p>
-                        <div className="flex justify-around">
-                            {avatars.map(a => (
-                                <button 
-                                    key={a}
-                                    onClick={() => { speak("¡Genial!"); setPlayer({...player, avatar: a}); }}
-                                    className={`text-6xl p-3 rounded-3xl transition-all duration-300 ${player.avatar === a ? 'bg-yellow-400 scale-125 rotate-3 shadow-2xl' : 'opacity-40 grayscale'}`}
-                                >{a}</button>
-                            ))}
+                <div className="w-full h-full flex flex-col items-center justify-center bg-indigo-900 p-6 text-center bg-[url('https://images.unsplash.com/photo-1534796636912-36528502f5d5?auto=format&fit=crop&w=800&q=80')] bg-cover bg-center relative">
+                    <div className="absolute inset-0 bg-black/60"></div>
+                    <div className="relative z-10 flex flex-col items-center">
+                        <h1 className="title-font text-6xl text-yellow-400 mb-2 drop-shadow-[0_5px_5px_rgba(0,0,0,1)]">SÚPER RPG</h1>
+                        <h2 className="title-font text-4xl text-white mb-10 drop-shadow-[0_5px_5px_rgba(0,0,0,1)]">DE LECTURA</h2>
+                        
+                        <div className="bg-white/20 p-6 rounded-3xl backdrop-blur-md mb-10 border-4 border-white/30">
+                            <p className="title-font text-2xl text-yellow-300 mb-6 drop-shadow-md">ELIGE TU HÉROE</p>
+                            <div className="grid grid-cols-3 gap-4">
+                                {avatars.map(a => (
+                                    <button 
+                                        key={a}
+                                        onClick={() => { setPlayer({...player, avatar: a}); speak("Excelente elección"); }}
+                                        className={`text-6xl p-4 rounded-2xl transition-all ${player.avatar === a ? 'bg-yellow-400 scale-110 shadow-[0_0_20px_#fbbf24]' : 'bg-black/40 hover:bg-white/20'}`}
+                                    >{a}</button>
+                                ))}
+                            </div>
                         </div>
+                        
+                        <button onClick={() => { speak("¡A jugar!"); onStart(); }} className="bg-green-500 text-white title-font text-4xl px-12 py-5 rounded-full border-b-8 border-green-700 active:border-b-0 active:translate-y-2 shadow-2xl">
+                            ¡EMPEZAR!
+                        </button>
                     </div>
-                    <button onClick={() => { speak("¡Comencemos la aventura!"); onStart(); }} className="bg-green-500 text-white title-font text-4xl px-16 py-6 rounded-full border-b-[12px] border-green-700 active:border-b-0 active:translate-y-3 transition-all shadow-2xl">¡JUGAR!</button>
                 </div>
             );
         }
 
-        function MapScreen({ maxLevel, onSelect }) {
+        // --- PANTALLA DEL MAPA ---
+        function MapScreen({ maxLevel, onSelect, stars, onShop }) {
+            const mapRef = useRef(null);
+
             useEffect(() => {
-                const timer = setTimeout(() => {
-                    const currentBtn = document.getElementById(`lvl-${maxLevel}`);
-                    if (currentBtn) currentBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 400);
-                return () => clearTimeout(timer);
+                const activeLvl = document.getElementById(`lvl-${maxLevel}`);
+                if (activeLvl && mapRef.current) {
+                    activeLvl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }, [maxLevel]);
 
             return (
-                <div className="flex-1 w-full h-full custom-scroll map-bg-massive relative pt-28 pb-40">
-                    <div className="flex flex-col-reverse items-center gap-14">
+                <div className="w-full h-full bg-slate-900 custom-scroll relative" ref={mapRef}>
+                    {/* Header pegajoso */}
+                    <div className="fixed top-0 left-0 w-full z-40 p-4 flex justify-between items-center bg-slate-900/80 backdrop-blur-md border-b-4 border-slate-700">
+                        <div className="flex items-center gap-2 bg-yellow-400 border-4 border-yellow-600 px-5 py-2 rounded-full text-black title-font text-xl shadow-lg">
+                            <span>⭐</span><span>{stars.toLocaleString()}</span>
+                        </div>
+                        <button onClick={onShop} className="bg-purple-600 text-white border-b-4 border-purple-800 px-6 py-2 rounded-full title-font text-xl active:border-b-0 active:translate-y-1 shadow-lg">
+                            🛒 TIENDA
+                        </button>
+                    </div>
+
+                    {/* Camino del Mapa */}
+                    <div className="flex flex-col-reverse items-center pt-32 pb-48 gap-8 relative">
                         {LEVELS.map((lvl, idx) => {
-                            const isUnlocked = lvl.id <= maxLevel;
-                            const isNext = lvl.id === maxLevel;
+                            const isLocked = lvl.id > maxLevel;
+                            const isCurrent = lvl.id === maxLevel;
+                            const isBossLevel = lvl.id % 5 === 0;
                             
+                            // Efecto zig-zag
+                            const offsetX = (idx % 2 === 0) ? 'translate-x-12' : '-translate-x-12';
+
                             return (
-                                <div key={lvl.id} id={`lvl-${lvl.id}`} className="relative">
-                                    {idx < LEVELS.length - 1 && (
-                                        <div className={`absolute left-1/2 -translate-x-1/2 -top-14 w-3 h-14 -z-10 ${isUnlocked ? 'bg-white/40' : 'bg-black/20'}`}></div>
+                                <div key={lvl.id} id={`lvl-${lvl.id}`} className={`relative flex flex-col items-center ${offsetX}`}>
+                                    {lvl.id < 50 && (
+                                        <div className={`absolute bottom-full mb-0 w-4 h-12 rounded-full ${isLocked ? 'bg-slate-700' : 'bg-yellow-400'}`}></div>
                                     )}
                                     
-                                    <button 
-                                        onClick={() => { if(isUnlocked) { speak("Nivel " + lvl.id); onSelect(lvl.id); } }}
-                                        className={`w-28 h-28 rounded-full border-[6px] flex flex-col items-center justify-center title-font text-3xl transition-all relative
-                                            ${isUnlocked ? 'bg-red-500 border-white text-white shadow-[0_8px_0_#991b1b] active:translate-y-1 active:shadow-none level-glow' : 'bg-slate-800 border-slate-700 text-slate-500'}
-                                            ${isNext ? 'animate-bounce ring-8 ring-yellow-400/50' : ''}
-                                        `}
-                                    >
-                                        {isUnlocked ? lvl.id : '🔒'}
-                                        <div className="absolute -bottom-8 bg-black/60 px-3 py-1 rounded-full text-[12px] text-white border border-white/20 backdrop-blur-sm whitespace-nowrap">
-                                            {lvl.theme.name}
-                                        </div>
-                                    </button>
+                                    <div className="flex items-center gap-4">
+                                        {idx % 2 !== 0 && !isLocked && <span className="text-sm title-font text-yellow-200 bg-black/50 px-3 py-1 rounded-full">{lvl.biome.name}</span>}
+                                        
+                                        <button 
+                                            disabled={isLocked}
+                                            onClick={() => { speak(`Nivel ${lvl.id}`); onSelect(lvl); }}
+                                            className={`w-24 h-24 sm:w-28 sm:h-28 rounded-[2rem] border-8 flex flex-col items-center justify-center transition-all z-10
+                                                ${isLocked ? 'bg-slate-800 border-slate-600 text-slate-500 opacity-60' : 
+                                                  isBossLevel ? 'bg-red-500 border-red-700 text-white shadow-[0_0_20px_red]' : 'bg-blue-500 border-blue-300 text-white shadow-xl'}
+                                                ${isCurrent ? 'current-level scale-110' : 'active:scale-95'}
+                                            `}
+                                        >
+                                            <span className="title-font text-3xl sm:text-4xl">{isLocked ? '🔒' : lvl.id}</span>
+                                            {isBossLevel && !isLocked && <span className="text-xl mt-1">👑</span>}
+                                            {isCurrent && <span className="absolute -top-10 text-4xl animate-float">👇</span>}
+                                        </button>
+
+                                        {idx % 2 === 0 && !isLocked && <span className="text-sm title-font text-yellow-200 bg-black/50 px-3 py-1 rounded-full">{lvl.biome.name}</span>}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -273,41 +379,69 @@
             );
         }
 
-        function ShopScreen({ stars, setStars, player, setPlayer }) {
+        // --- PANTALLA DE TIENDA ---
+        function ShopScreen({ stars, setStars, player, setPlayer, onBack }) {
+            const [filter, setFilter] = useState('weapon'); // weapon, armor, companion
+
             const handleBuy = (item) => {
                 if (player.purchased.includes(item.id)) {
-                    speak("¡Equipado!");
                     setPlayer(p => ({ ...p, inv: { ...p.inv, [item.type]: item.id } }));
+                    speak("¡Equipado!");
                 } else if (stars >= item.cost) {
-                    speak("¡Gracias por tu compra!");
                     setStars(s => s - item.cost);
                     setPlayer(p => ({
                         ...p,
                         purchased: [...p.purchased, item.id],
                         inv: { ...p.inv, [item.type]: item.id }
                     }));
+                    speak("¡Excelente compra!");
                 } else {
-                    speak("¡Necesitas más estrellas!");
+                    speak("Necesitas más estrellas");
                 }
             };
 
+            const filteredItems = SHOP_ITEMS.filter(i => i.type === filter);
+
             return (
-                <div className="flex-1 bg-indigo-950 pt-28 p-6 overflow-y-auto custom-scroll">
-                    <h2 className="title-font text-4xl text-center text-yellow-400 mb-8 drop-shadow-lg">Gran Bazar</h2>
-                    <div className="grid grid-cols-2 gap-5 pb-20">
-                        {SHOP_ITEMS.map(item => {
-                            const isOwned = player.purchased.includes(item.id);
-                            const isEquipped = player.inv[item.type] === item.id;
+                <div className="w-full h-full bg-slate-900 flex flex-col">
+                    {/* Top Bar */}
+                    <div className="p-4 flex justify-between items-center bg-slate-800 border-b-4 border-slate-700">
+                        <div className="flex items-center gap-2 bg-yellow-400 border-4 border-yellow-600 px-4 py-2 rounded-full text-black title-font text-xl">
+                            ⭐ {stars.toLocaleString()}
+                        </div>
+                        <button onClick={onBack} className="bg-red-500 text-white border-b-4 border-red-700 px-6 py-2 rounded-full title-font text-xl active:translate-y-1 active:border-b-0">
+                            VOLVER
+                        </button>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex gap-2 p-4 justify-center">
+                        <button onClick={() => setFilter('weapon')} className={`px-6 py-3 rounded-2xl title-font text-xl transition-all ${filter==='weapon'?'bg-red-500 text-white scale-110':'bg-slate-700 text-slate-300'}`}>⚔️ Armas</button>
+                        <button onClick={() => setFilter('armor')} className={`px-6 py-3 rounded-2xl title-font text-xl transition-all ${filter==='armor'?'bg-blue-500 text-white scale-110':'bg-slate-700 text-slate-300'}`}>🛡️ Ropa</button>
+                        <button onClick={() => setFilter('companion')} className={`px-6 py-3 rounded-2xl title-font text-xl transition-all ${filter==='companion'?'bg-green-500 text-white scale-110':'bg-slate-700 text-slate-300'}`}>🐶 Mascotas</button>
+                    </div>
+
+                    {/* Items Grid */}
+                    <div className="flex-1 custom-scroll p-4 grid grid-cols-2 gap-4 pb-10">
+                        {filteredItems.map(item => {
+                            const owned = player.purchased.includes(item.id);
+                            const equipped = player.inv[item.type] === item.id;
+                            const canAfford = stars >= item.cost;
+
                             return (
-                                <div key={item.id} className="bg-white/5 backdrop-blur-sm p-5 rounded-[30px] border-2 border-white/10 flex flex-col items-center text-center shadow-xl">
-                                    <span className="text-6xl mb-3 drop-shadow-md">{item.emoji}</span>
-                                    <p className="font-black text-white text-md mb-1 uppercase">{item.name}</p>
-                                    <p className="text-sm text-cyan-400 mb-4 font-bold">+{item.stat} Poder</p>
+                                <div key={item.id} className={`bg-slate-800 border-4 rounded-3xl p-4 flex flex-col items-center text-center transition-transform ${equipped ? 'border-green-400 shadow-[0_0_15px_#4ade80]' : 'border-slate-600'}`}>
+                                    <span className="text-6xl mb-2">{item.emoji}</span>
+                                    <h4 className="title-font text-white text-sm mb-1 leading-tight">{item.name}</h4>
+                                    <p className="text-cyan-400 font-bold text-xs mb-3 bg-black/50 px-2 py-1 rounded-full">{item.desc}</p>
+                                    
                                     <button 
                                         onClick={() => handleBuy(item)}
-                                        className={`w-full py-3 rounded-2xl title-font text-md shadow-lg transition-all active:scale-95 ${isEquipped ? 'bg-green-500 text-white' : isOwned ? 'bg-blue-600 text-white' : 'bg-yellow-400 text-black'}`}
+                                        className={`w-full py-3 rounded-xl title-font text-lg border-b-4 active:border-b-0 active:translate-y-1 transition-all
+                                            ${equipped ? 'bg-green-500 border-green-700 text-white' : 
+                                              owned ? 'bg-blue-500 border-blue-700 text-white' : 
+                                              canAfford ? 'bg-yellow-400 border-yellow-600 text-black' : 'bg-slate-600 border-slate-700 text-slate-400'}`}
                                     >
-                                        {isEquipped ? 'LISTO' : isOwned ? 'USAR' : `⭐ ${item.cost}`}
+                                        {equipped ? 'PUESTO' : owned ? 'USAR' : `⭐ ${item.cost.toLocaleString()}`}
                                     </button>
                                 </div>
                             );
@@ -317,164 +451,263 @@
             );
         }
 
-        function CombatScreen({ level, player, stats, onWin, onLose }) {
+        // --- PANTALLA DE COMBATE ---
+        function CombatScreen({ level, playerAvatar, playerMaxHp, stats, onWin, onLose }) {
             const [wave, setWave] = useState(1);
-            const [php, setPhp] = useState(100);
-            const [ehp, setEhp] = useState(level.enemyHp);
+            const [php, setPhp] = useState(playerMaxHp);
+            const [enemies, setEnemies] = useState([]);
+            
             const [challenge, setChallenge] = useState(null);
             const [msg, setMsg] = useState("¡Prepárate!");
-            const [floating, setFloating] = useState(null);
-            const [turn, setTurn] = useState('PLAYER'); // PLAYER, ENEMY, ANIMATION
-            const [shaking, setShaking] = useState(false);
+            const [turn, setTurn] = useState('PLAYER'); // PLAYER, ENEMY, ANIMATING, END
+            const [dmgFlow, setDmgFlow] = useState(null); // { side, val }
+            
+            const [playerAnim, setPlayerAnim] = useState('animate-float');
+            const [enemyAnim, setEnemyAnim] = useState('animate-float');
 
-            const enemyEmoji = wave === level.waves ? level.theme.boss : level.theme.enemies[Math.floor(Math.random() * level.theme.enemies.length)];
-
-            const generateChallenge = () => {
-                const target = DICTIONARY[Math.floor(Math.random() * DICTIONARY.length)];
-                const others = DICTIONARY.filter(d => d.w !== target.w).sort(() => 0.5 - Math.random()).slice(0, 2);
-                const options = [target.m, others[0].m, others[1].m].sort(() => 0.5 - Math.random());
-                setChallenge({ word: target.w, correct: target.m, options });
-                setMsg(`¡Busca el dibujo de: ${target.w}!`);
-                speak(`Busca el dibujo de: ${target.w}`);
-            };
-
+            // Generar Enemigos para la oleada actual
             useEffect(() => {
-                if(turn === 'PLAYER' && !challenge) generateChallenge();
-            }, [wave, turn]);
+                if (turn === 'END') return;
+
+                const isBoss = wave === level.totalWaves;
+                let hordeSize = 1;
+                
+                // Lógica de Hordas: A partir del nivel 10, pueden salir 2. Nivel 30+, pueden salir 3.
+                if (!isBoss && level.id >= 10 && Math.random() > 0.5) hordeSize = 2;
+                if (!isBoss && level.id >= 30 && Math.random() > 0.7) hordeSize = 3;
+
+                const newEnemies = [];
+                for(let i=0; i < (isBoss ? 1 : hordeSize); i++) {
+                    newEnemies.push(isBoss ? level.biome.boss : level.biome.enemies[Math.floor(Math.random() * level.biome.enemies.length)]);
+                }
+
+                // Stats combinados de la horda
+                const multiplier = isBoss ? 2 : hordeSize;
+                const totalHp = level.enemyHpBase * multiplier;
+                
+                setEnemies({
+                    emojis: newEnemies,
+                    hp: totalHp,
+                    maxHp: totalHp,
+                    atk: level.enemyAtkBase * (isBoss ? 1.5 : (1 + (hordeSize-1)*0.5)), // Hordas pegan más duro
+                    name: isBoss ? "¡SÚPER JEFE!" : hordeSize > 1 ? "¡HORDA!" : "Enemigo"
+                });
+
+                if (isBoss) speak("¡Cuidado! ¡Es el Jefe final!");
+                else if (hordeSize > 1) speak("¡Oh no! ¡Son muchos!");
+                else speak("¡Al ataque!");
+
+                setTimeout(() => setTurn('PLAYER'), 1000);
+            }, [wave]);
+
+            // Generar desafío de lectura
+            useEffect(() => {
+                if (turn === 'PLAYER' && enemies.hp > 0) {
+                    const dict = level.biome.words;
+                    const correctTarget = dict[Math.floor(Math.random() * dict.length)];
+                    
+                    // Asegurar opciones incorrectas
+                    let allWords = [];
+                    BIOMES.forEach(b => allWords = allWords.concat(b.words));
+                    const wrongOptions = allWords.filter(w => w.w !== correctTarget.w).sort(() => Math.random() - 0.5).slice(0, 2);
+                    
+                    const options = [correctTarget.m, wrongOptions.m, wrongOptions.m].sort(() => Math.random() - 0.5);
+                    
+                    setChallenge({ word: correctTarget.w, correct: correctTarget.m, options });
+                    setMsg(`Toca la imagen de: ${correctTarget.w}`);
+                    // Opcional: speak(correctTarget.w) automático, pero mejor que el niño lo intente leer primero.
+                }
+            }, [turn, enemies]);
 
             const handleAttack = (choice) => {
                 if (turn !== 'PLAYER') return;
 
                 if (choice === challenge.correct) {
-                    const dmg = stats.atk + Math.floor(Math.random() * 5);
-                    setFloating({ type: 'enemy', val: dmg });
-                    setEhp(prev => {
-                        const next = Math.max(0, prev - dmg);
-                        if (next === 0) {
-                            setTurn('ANIMATION');
-                            if (wave < level.waves) {
-                                setMsg("¡Enemigo derrotado!");
-                                setTimeout(() => {
-                                    setWave(w => w + 1);
-                                    setEhp(level.enemyHp);
-                                    setTurn('PLAYER');
-                                    setChallenge(null);
-                                }, 1500);
+                    setTurn('ANIMATING');
+                    speak("¡Súper bien!");
+                    setMsg("¡ATAQUE GENIAL!");
+                    setPlayerAnim('animate-attack');
+                    
+                    setTimeout(() => {
+                        const dmg = Math.floor(stats.atk * (0.9 + Math.random() * 0.2));
+                        setDmgFlow({ side: 'enemy', val: dmg });
+                        setEnemyAnim('animate-shake');
+                        
+                        setEnemies(prev => {
+                            const newHp = Math.max(0, prev.hp - dmg);
+                            if (newHp === 0) {
+                                if (wave < level.totalWaves) {
+                                    setMsg("¡Vencidos! Viene el siguiente...");
+                                    setTimeout(() => {
+                                        setWave(w => w + 1);
+                                        setPlayerAnim('animate-float');
+                                        setEnemyAnim('animate-float');
+                                    }, 2000);
+                                } else {
+                                    setTurn('END');
+                                    setMsg("¡NIVEL COMPLETADO!");
+                                    speak("¡Felicidades! Eres un campeón.");
+                                    setTimeout(onWin, 3000);
+                                }
                             } else {
-                                setMsg("¡VICTORIA TOTAL!");
-                                speak("¡Eres un campeón!");
-                                setTimeout(onWin, 2000);
+                                setTimeout(enemyTurn, 1000);
                             }
-                        } else {
-                            setTurn('ENEMY');
-                            setTimeout(enemyTurn, 1000);
-                        }
-                        return next;
-                    });
+                            return { ...prev, hp: newHp };
+                        });
+                        
+                        setTimeout(() => {
+                            setPlayerAnim('animate-float');
+                            setEnemyAnim('animate-float');
+                        }, 500);
+
+                    }, 500);
+
                 } else {
-                    setMsg("¡Casi! Inténtalo de nuevo");
-                    speak("¡Esa no es!");
-                    setShaking(true);
-                    setTimeout(() => setShaking(false), 300);
-                    setTurn('ENEMY');
-                    setTimeout(enemyTurn, 1200);
+                    setMsg("¡Casi! ¡Sigue intentando!");
+                    speak("Uy, ese no es.");
+                    setPlayerAnim('animate-shake');
+                    setTimeout(() => setPlayerAnim('animate-float'), 500);
+                    setTurn('ANIMATING');
+                    setTimeout(enemyTurn, 1000);
                 }
             };
 
             const enemyTurn = () => {
-                const enemyMsg = level.theme.msgs[Math.floor(Math.random() * level.theme.msgs.length)];
-                setMsg(`${enemyEmoji}: "${enemyMsg}"`);
-                speak(enemyMsg);
+                setTurn('ENEMY');
+                setMsg(`¡El ${enemies.name} ataca!`);
+                setEnemyAnim('animate-attack');
                 
                 setTimeout(() => {
-                    const baseDmg = wave === level.waves ? level.enemyAtk * 1.5 : level.enemyAtk;
-                    const dmg = Math.max(5, Math.floor(baseDmg - stats.def));
-                    setFloating({ type: 'player', val: dmg });
-                    setShaking(true);
+                    // Daño del enemigo menos defensa del jugador
+                    const dmg = Math.max(5, Math.floor(enemies.atk - stats.def));
+                    setDmgFlow({ side: 'player', val: dmg });
+                    setPlayerAnim('animate-shake');
+                    speak("Ay");
+                    
                     setPhp(prev => {
-                        const next = Math.max(0, prev - dmg);
-                        if (next === 0) {
-                            setMsg("¡Oh no! Has caído...");
-                            speak("¡Vuelve a intentarlo, tú puedes!");
-                            setTimeout(onLose, 2000);
-                        } else {
-                            setTurn('PLAYER');
-                            setChallenge(null);
+                        let currentHp = Math.max(0, prev - dmg);
+                        
+                        // Si sobrevive y tiene mascota, curar
+                        if (currentHp > 0 && stats.heal > 0) {
+                            setTimeout(() => {
+                                setMsg("¡Tu mascota te cura!");
+                                setDmgFlow({ side: 'heal', val: stats.heal });
+                                setPhp(p => Math.min(playerMaxHp, p + stats.heal));
+                            }, 800);
                         }
-                        return next;
+
+                        if (currentHp === 0) {
+                            setTurn('END');
+                            setMsg("¡Oh no! Necesitamos entrenar más.");
+                            speak("Inténtalo de nuevo, tú puedes.");
+                            setTimeout(onLose, 3000);
+                        } else {
+                            setTimeout(() => setTurn('PLAYER'), stats.heal > 0 ? 1800 : 1000);
+                        }
+                        return currentHp;
                     });
-                    setTimeout(() => setShaking(false), 300);
-                }, 1500);
+                    
+                    setTimeout(() => {
+                        setEnemyAnim('animate-float');
+                        setPlayerAnim('animate-float');
+                    }, 500);
+                }, 500);
             };
 
+            if (!enemies.emojis) return <div className="bg-black w-full h-full"></div>;
+
             return (
-                <div className={`flex-1 flex flex-col ${level.theme.bg} overflow-hidden transition-colors duration-500`}>
-                    
-                    {/* ZONA DE BATALLA */}
-                    <div className={`flex-1 flex flex-col items-center justify-around p-6 relative ${shaking ? 'animate-shake' : ''}`}>
-                        
-                        {/* Status bar superior del combate */}
-                        <div className="absolute top-20 w-full px-8 flex justify-between items-center opacity-80">
-                            <span className="title-font text-white text-xl drop-shadow-md">OLA {wave}/{level.waves}</span>
-                            <span className="title-font text-white text-xl drop-shadow-md">{level.name}</span>
-                        </div>
+                <div className="w-full h-full flex flex-col relative overflow-hidden">
+                    {/* Fondo Dinámico */}
+                    <div className="absolute inset-0 z-0">
+                        <img src={level.biome.img} className="w-full h-full object-cover" alt="bg" />
+                        <div className="absolute inset-0 bg-overlay"></div>
+                    </div>
 
-                        <div className="w-full flex justify-between items-end relative mt-10">
-                            {/* Player side */}
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="text-8xl relative animate-float drop-shadow-2xl">
-                                    {player.avatar}
-                                    {floating?.type === 'player' && <div className="floating-damage">-{floating.val}</div>}
-                                </div>
-                                <div className="w-28 h-5 bg-slate-900 rounded-full border-2 border-white shadow-lg overflow-hidden">
-                                    <div className="h-full bg-green-500 transition-all duration-500" style={{width: `${php}%`}}></div>
-                                </div>
-                                <div className="text-white title-font text-xs uppercase tracking-tighter">HP: {php}</div>
+                    {/* Escenario Superior (Combate) */}
+                    <div className="flex-1 relative z-10 flex flex-col items-center justify-between p-4 sm:p-8">
+                        {/* Status Bar Superior */}
+                        <div className="w-full flex justify-between items-center bg-black/60 p-3 rounded-3xl border-2 border-white/20">
+                            <div className="title-font text-white text-lg bg-blue-600 px-4 py-1 rounded-full">
+                                {level.name}
                             </div>
-
-                            {/* Enemy side */}
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="text-8xl relative animate-float drop-shadow-2xl" style={{animationDelay: '1.5s'}}>
-                                    {enemyEmoji}
-                                    {floating?.type === 'enemy' && <div className="floating-damage">-{floating.val}</div>}
-                                </div>
-                                <div className="w-28 h-5 bg-slate-900 rounded-full border-2 border-white shadow-lg overflow-hidden">
-                                    <div className="h-full bg-red-500 transition-all duration-500" style={{width: `${(ehp/level.enemyHp)*100}%`}}></div>
-                                </div>
-                                <div className="text-white title-font text-xs uppercase tracking-tighter">HP: {ehp}</div>
+                            <div className="title-font text-yellow-400 text-xl bg-red-600 px-4 py-1 rounded-full border-2 border-red-800">
+                                OLA {wave}/{level.totalWaves}
                             </div>
                         </div>
-                        
-                        {/* Burbuja de mensaje */}
-                        <div className="bg-white/95 text-slate-900 px-8 py-3 rounded-[30px] title-font text-lg shadow-2xl border-4 border-slate-800 text-center mx-4 min-h-[60px] flex items-center">
+
+                        {/* Personajes */}
+                        <div className="w-full flex justify-between items-end mb-8 px-4">
+                            
+                            {/* Jugador */}
+                            <div className={`flex flex-col items-center relative ${playerAnim} z-20`}>
+                                {(dmgFlow?.side === 'player' || dmgFlow?.side === 'heal') && (
+                                    <div className={`floating-damage ${dmgFlow.side==='heal'?'text-green-400':'text-red-500'}`}>
+                                        {dmgFlow.side==='heal'?'+':'-'}{dmgFlow.val}
+                                    </div>
+                                )}
+                                <div className="text-8xl sm:text-9xl drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)] relative">
+                                    {playerAvatar}
+                                </div>
+                                <div className="w-28 h-6 bg-slate-900 rounded-full border-4 border-white overflow-hidden mt-3 shadow-lg relative">
+                                    <div className="h-full bg-green-500 transition-all duration-300" style={{width: `${(php/playerMaxHp)*100}%`}}></div>
+                                    <span className="absolute inset-0 flex items-center justify-center text-white text-[10px] font-black">{php} HP</span>
+                                </div>
+                            </div>
+
+                            {/* Enemigo(s) */}
+                            <div className={`flex flex-col items-center relative ${enemyAnim} z-10`}>
+                                {dmgFlow?.side === 'enemy' && <div className="floating-damage text-white">-{dmgFlow.val}</div>}
+                                
+                                <div className="flex justify-center flex-wrap-reverse gap-[-10px] w-40 drop-shadow-[0_10px_10px_rgba(0,0,0,0.8)]">
+                                    {enemies.emojis.map((em, i) => (
+                                        <span key={i} className={`text-8xl sm:text-9xl ${wave===level.totalWaves?'scale-125':''}`}>{em}</span>
+                                    ))}
+                                </div>
+                                
+                                <div className="w-28 h-6 bg-slate-900 rounded-full border-4 border-white overflow-hidden mt-3 shadow-lg">
+                                    <div className="h-full bg-red-500 transition-all duration-300" style={{width: `${(enemies.hp/enemies.maxHp)*100}%`}}></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Mensaje de Batalla */}
+                        <div className="bg-white/95 p-4 rounded-3xl border-4 border-slate-800 title-font text-2xl text-center w-full shadow-[0_10px_20px_rgba(0,0,0,0.5)]">
                             {msg}
                         </div>
                     </div>
 
-                    {/* PANEL TÁCTIL DE INTERACCIÓN */}
-                    <div className="bg-slate-900 p-8 rounded-t-[50px] shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t-[10px] border-slate-800 min-h-[42%] flex flex-col items-center justify-center">
+                    {/* Controles Inferiores (Desafío de Lectura) */}
+                    <div className="h-[45%] bg-slate-900/95 backdrop-blur-xl z-20 border-t-8 border-slate-700 p-4 sm:p-6 flex flex-col items-center justify-center shadow-[0_-20px_30px_rgba(0,0,0,0.5)] rounded-t-[40px]">
+                        
                         {turn === 'PLAYER' && challenge ? (
-                            <>
-                                <div className="flex flex-col items-center mb-6">
-                                    <p className="text-blue-400 font-black text-lg uppercase tracking-widest mb-1">Tu reto es:</p>
-                                    <h3 className="text-white title-font text-5xl tracking-widest drop-shadow-lg">{challenge.word}</h3>
+                            <div className="w-full flex flex-col items-center animate-[fade-in_0.3s_ease-out]">
+                                <div className="text-center mb-6 flex items-center gap-4 bg-black/40 px-8 py-3 rounded-full border-2 border-slate-600">
+                                    <button onClick={() => speak(challenge.word)} className="text-4xl bg-blue-500 p-3 rounded-full shadow-lg active:scale-90 transition-transform">🔊</button>
+                                    <h2 className="text-white title-font text-5xl sm:text-6xl tracking-[8px] uppercase">{challenge.word}</h2>
                                 </div>
-                                <div className="flex gap-5 w-full justify-center">
+                                
+                                <div className="flex justify-center gap-4 sm:gap-8 w-full">
                                     {challenge.options.map((opt, i) => (
                                         <button 
-                                            key={i} 
+                                            key={i}
                                             onClick={() => handleAttack(opt)}
-                                            className="text-7xl bg-slate-800 p-5 rounded-[35px] border-b-8 border-slate-950 active:translate-y-2 active:border-b-0 transition-all shadow-xl hover:bg-slate-700"
+                                            className="text-6xl sm:text-8xl bg-slate-800 p-4 sm:p-6 rounded-[2rem] border-b-8 border-slate-950 active:translate-y-2 active:border-b-0 transition-all shadow-2xl hover:bg-slate-700"
                                         >
                                             {opt}
                                         </button>
                                     ))}
                                 </div>
-                            </>
+                            </div>
+                        ) : turn === 'END' ? (
+                            <div className="flex flex-col items-center gap-4 animate-bounce">
+                                <span className="text-7xl">🌟</span>
+                                <span className="title-font text-white text-3xl text-center">¡Cargando el mapa!</span>
+                            </div>
                         ) : (
-                            <div className="animate-pulse flex flex-col items-center">
-                                <div className="w-20 h-20 border-8 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="mt-4 title-font text-white text-xl">ESPERA...</p>
+                            <div className="flex flex-col items-center gap-6 opacity-70">
+                                <div className="w-16 h-16 border-8 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                                <span className="title-font text-red-400 text-2xl">¡CUIDADO! EL ENEMIGO ATACA</span>
                             </div>
                         )}
                     </div>
